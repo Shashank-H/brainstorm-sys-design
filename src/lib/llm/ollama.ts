@@ -34,6 +34,7 @@ export async function streamOllamaChat({ settings, messages, signal, onToken }: 
     body: JSON.stringify({
       model: settings.model,
       stream: true,
+      think: settings.thinkingLevel !== 'off',
       options: { temperature: settings.temperature },
       messages,
     }),

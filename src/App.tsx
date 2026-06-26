@@ -86,7 +86,7 @@ export default function App() {
 
     const diagram = await exportDiagramImage(current);
     const metadata = formatDiagramSummary(diagram.summary);
-    const prompt = buildReviewPrompt({ userPrompt, metadata, mode });
+    const prompt = buildReviewPrompt({ userPrompt, metadata, mode, thinkingLevel: settings.thinkingLevel });
 
     return [
       { role: 'system', content: ARCHITECTURE_REVIEWER_SYSTEM_PROMPT },

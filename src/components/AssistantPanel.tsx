@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import type { AppSettings, ChatMessage } from '../types';
+import { MarkdownMessage } from './MarkdownMessage';
+import type { AppSettings, ChatMessage, ThinkingLevel } from '../types';
 
 type AssistantPanelProps = {
   messages: ChatMessage[];
@@ -101,13 +102,30 @@ export function AssistantPanel({
                     <span>{message.role === 'assistant' ? 'Gemma' : message.role}</span>
                     {message.kind && <small>{message.kind}</small>}
                   </div>
-                  <div className="message-content">{message.content}</div>
+                  <div className="message-content">
+                    <MarkdownMessage content={message.content} />
+                  </div>
                 </article>
               ))
             )}
           </div>
 
           <footer className="composer">
+            <div className="composer-options">
+              <label>
+                Thinking
+                <select
+                  value={settings.thinkingLevel}
+                  onChange={(event) => onSettingsChange({ ...settings, thinkingLevel: event.target.value as ThinkingLevel })}
+                  disabled={isBusy}
+                >
+                  <option value="off">Off</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </label>
+            </div>
             <textarea
               placeholder="Ask about the diagram, tradeoffs, scaling, security..."
               value={prompt}
