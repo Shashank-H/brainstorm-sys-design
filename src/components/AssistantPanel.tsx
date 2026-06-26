@@ -1,0 +1,125 @@
+import { useState } from 'react';
+import type { AppSettings, ChatMessage } from '../types';
+
+type AssistantPanelProps = {
+  messages: ChatMessage[];
+  settings: AppSettings;
+  isBusy: boolean;
+  status: string;
+  onSendChat: (prompt: string) => void;
+  onReview: (prompt?: string) => void;
+  onSettingsChange: (settings: AppSettings) => void;
+  onClearChat: () => void;
+  onTestConnection: () => void;
+};
+
+export function AssistantPanel({
+  messages,
+  settings,
+  isBusy,
+  status,
+  onSendChat,
+  onReview,
+  onSettingsChange,
+  onClearChat,
+  onTestConnection,
+}: AssistantPanelProps) {
+  const [prompt, setPrompt] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+
+  const submit = () => {
+    const value = prompt.trim();
+    if (!value || isBusy) return;
+    onSendChat(value);
+    setPrompt('');
+  };
+
+  return (
+    <aside className="assistant-panel">
+      <header className="assistant-header">
+        <div>
+          <h1>Gemma Reviewer</h1>
+          <p>{status}</p>
+        </div>
+        <button onClick={() => setShowSettings((value) => !value)}>{showSettings ? 'Chat' : 'Settings'}</button>
+      </header>
+
+      {showSettings ? (
+        <section className="settings-section">
+          <label>
+            Ollama endpoint
+            <input
+              value={settings.ollamaEndpoint}
+              onChange={(event) => onSettingsChange({ ...settings, ollamaEndpoint: event.target.value })}
+            />
+          </label>
+          <label>
+            Model
+            <input
+              value={settings.model}
+              onChange={(event) => onSettingsChange({ ...settings, model: event.target.value })}
+            />
+          </label>
+          <label>
+            Temperature: {settings.temperature.toFixed(1)}
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={settings.temperature}
+              onChange={(event) => onSettingsChange({ ...settings, temperature: Number(event.target.value) })}
+            />
+          </label>
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={settings.autoReview}
+              onChange={(event) => onSettingsChange({ ...settings, autoReview: event.target.checked })}
+            />
+            Proactive review after inactivity
+          </label>
+          <button onClick={onTestConnection} disabled={isBusy}>Test Ollama</button>
+          <p className="privacy-note">Local-only: prompts, images, chats, and diagrams are sent only to the configured Ollama endpoint.</p>
+        </section>
+      ) : (
+        <>
+          <div className="assistant-actions">
+            <button onClick={() => onReview()} disabled={isBusy}>Review diagram</button>
+            <button onClick={onClearChat} disabled={isBusy || messages.length === 0}>Clear chat</button>
+          </div>
+
+          <div className="message-list">
+            {messages.length === 0 ? (
+              <div className="empty-state">
+                Draw a system design, then click <strong>Review diagram</strong>. Auto-review will also comment after meaningful inactivity.
+              </div>
+            ) : (
+              messages.map((message) => (
+                <article key={message.id} className={`message ${message.role} ${message.kind ?? ''}`}>
+                  <div className="message-meta">
+                    <span>{message.role === 'assistant' ? 'Gemma' : message.role}</span>
+                    {message.kind && <small>{message.kind}</small>}
+                  </div>
+                  <div className="message-content">{message.content}</div>
+                </article>
+              ))
+            )}
+          </div>
+
+          <footer className="composer">
+            <textarea
+              placeholder="Ask about the diagram, tradeoffs, scaling, security..."
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) submit();
+              }}
+            />
+            <button onClick={submit} disabled={isBusy || !prompt.trim()}>{isBusy ? 'Thinking...' : 'Send'}</button>
+          </footer>
+        </>
+      )}
+    </aside>
+  );
+}
