@@ -124,6 +124,21 @@ npm run build
 
 This runs TypeScript and Vite production bundling. The build currently passes, but Vite reports large chunk warnings due to Excalidraw and related bundles.
 
+## PostHog analytics
+
+PostHog is disabled by default and gated at build time through Vite env vars:
+
+```bash
+VITE_POSTHOG_ENABLED=true \
+VITE_POSTHOG_KEY=phc_your_project_key \
+VITE_POSTHOG_HOST=https://us.i.posthog.com \
+npm run build
+```
+
+For local/private builds, leave `VITE_POSTHOG_ENABLED=false` or unset. See `.env.example` for the available variables.
+
+The integration intentionally disables autocapture and session recording. It only sends lightweight product events such as app load, review start/completion/failure, Ollama connection test result, and chat clear. Diagram images, prompts, chats, Ollama endpoints, and full scene data are not captured.
+
 ## Tauri desktop development
 
 Run Tauri dev mode after installing Rust and Tauri platform dependencies:
@@ -184,7 +199,8 @@ The app is local-first:
 - Diagrams and chats are stored in browser/webview localStorage.
 - Diagram images are sent only to the configured Ollama endpoint.
 - Default endpoint is localhost.
-- No cloud API is used by the app.
+- No cloud API is used by the app unless PostHog analytics is explicitly enabled at build time.
+- PostHog analytics, when enabled, captures only lightweight product events and does not capture diagram images, prompts, chats, Ollama endpoints, or full scene data.
 
 If the endpoint is changed to a remote URL, diagram images and prompts will be sent there.
 

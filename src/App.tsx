@@ -1,6 +1,7 @@
 import { type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { AssistantPanel } from './components/AssistantPanel';
 import { DiagramCanvas } from './components/DiagramCanvas';
+import { captureAnalyticsEvent } from './lib/analytics';
 import { exportDiagramImage } from './lib/diagramImage';
 import { formatDiagramSummary, meaningfulSceneSignature } from './lib/diagramSummary';
 import { ARCHITECTURE_REVIEWER_SYSTEM_PROMPT, buildReviewPrompt } from './lib/llm/prompts';
@@ -167,6 +168,12 @@ export default function App() {
     const liveElements = current.elements.filter((element) => !element.isDeleted);
     if (mode === 'proactive' && liveElements.length < MIN_ELEMENTS_FOR_PROACTIVE_REVIEW) return;
 
+    captureAnalyticsEvent('diagram_review_started', {
+      mode,
+      live_element_count: liveElements.length,
+      auto_review_enabled: settings.autoReview,
+    });
+
     setIsBusy(true);
     setStatus(mode === 'proactive' ? 'Proactively reviewing diagram...' : 'Reviewing diagram image...');
     const controller = new AbortController();
@@ -196,6 +203,7 @@ export default function App() {
         lastSentSignatureRef.current = meaningfulSceneSignature(current);
         firstUnsentChangeAtRef.current = null;
       }
+      captureAnalyticsEvent('diagram_review_completed', { mode });
       setStatus(`Local Ollama · ${settings.model}`);
     } catch (error) {
       const message = toErrorMessage(error);
@@ -203,6 +211,7 @@ export default function App() {
         assistantId,
         `\n\n⚠️ ${message}\n\nIf this mentions images or unsupported input, verify that Ollama model \`${settings.model}\` supports vision payloads.`,
       );
+      captureAnalyticsEvent('diagram_review_failed', { mode });
       setStatus('Ollama error');
     } finally {
       setIsBusy(false);
@@ -223,12 +232,14 @@ export default function App() {
     try {
       const result = await testOllamaConnection(settings);
       setStatus(`Connected to Ollama · ${settings.model}`);
+      captureAnalyticsEvent('ollama_connection_tested', { ok: true, supports_vision: result.supportsVision });
       const visionNote = result.supportsVision
         ? 'The selected model advertises vision support.'
         : 'Warning: the selected model does not advertise vision support in Ollama capabilities, so image-based review may fail or require a vision-capable local model/tag.';
       appendMessage({ id: id('status'), role: 'assistant', content: `Connected to local Ollama at ${settings.ollamaEndpoint}. Default model: ${settings.model}. ${visionNote}`, createdAt: Date.now(), kind: result.supportsVision ? 'status' : 'error' });
     } catch (error) {
       const message = `Cannot reach local Ollama at ${settings.ollamaEndpoint}. Start it with \`ollama serve\` and ensure \`${settings.model}\` is available. (${toErrorMessage(error)})`;
+      captureAnalyticsEvent('ollama_connection_tested', { ok: false });
       setStatus('Ollama unavailable');
       appendMessage({ id: id('error'), role: 'assistant', content: message, createdAt: Date.now(), kind: 'error' });
     }
@@ -323,7 +334,10 @@ export default function App() {
         onSendChat={handleSendChat}
         onReview={handleReview}
         onSettingsChange={setSettings}
-        onClearChat={() => setMessages([])}
+        onClearChat={() => {
+          captureAnalyticsEvent('chat_cleared');
+          setMessages([]);
+        }}
         onTestConnection={handleTestConnection}
       />
     </main>
