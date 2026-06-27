@@ -2,7 +2,7 @@
 
 ## Overview
 
-Gemma Diagram Brainstormer is currently a client-heavy Tauri/Vite application. The Rust/Tauri layer provides the desktop shell, while the React frontend owns the diagram editor, assistant UI, local persistence, and Ollama communication.
+Archimedes Agent is currently a client-heavy Tauri/Vite application. The Rust/Tauri layer provides the desktop shell, while the React frontend owns the diagram editor, assistant UI, local persistence, and Ollama communication.
 
 ```txt
 +-------------------------------------------------------------+
@@ -152,9 +152,9 @@ Simple localStorage persistence.
 
 Keys:
 
-- `gemma-diagram.settings.v1`
-- `gemma-diagram.scene.v1`
-- `gemma-diagram.chat.v1`
+- `archimedes-agent.settings.v1`
+- `archimedes-agent.scene.v1`
+- `archimedes-agent.chat.v1`
 
 A bug was fixed where array fallbacks were incorrectly object-spread. Arrays now remain arrays when loaded.
 
@@ -216,7 +216,7 @@ Current Rust layer is minimal:
 
 `tauri.conf.json` sets:
 
-- product name: `Gemma Diagram Brainstormer`;
+- product name: `Archimedes Agent`;
 - dev URL: `http://localhost:1420`;
 - frontend dist: `../dist`;
 - window size: 1400x900;
@@ -238,7 +238,7 @@ No cloud LLM integration exists in the codebase.
 
 - `npm run build` passes.
 - Browser dev mode works.
-- Local image-understanding tests with Ollama/Gemma succeeded.
+- Local image-understanding tests with Ollama image understanding succeeded.
 - Tauri packaging has not been completed in this environment.
 
 ## Architectural risks / future improvements

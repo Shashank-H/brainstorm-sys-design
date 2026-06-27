@@ -140,6 +140,7 @@ body.is-resizing-sidebar .sidebar-resizer::after { opacity: 1; }
   background: var(--canvas-soft);
   border-left: 1px solid var(--hairline);
   color: var(--ink);
+  container-type: inline-size;
 }
 .assistant-header {
   display: flex;
@@ -204,6 +205,15 @@ body.is-resizing-sidebar .sidebar-resizer::after { opacity: 1; }
   align-items: center;
   justify-content: center;
   gap: 7px;
+}
+@container (max-width: 390px) {
+  .settings-toggle {
+    width: 32px;
+    min-width: 32px;
+    padding: 0;
+    gap: 0;
+  }
+  .settings-toggle span { display: none; }
 }
 
 .message-list {

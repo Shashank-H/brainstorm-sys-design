@@ -68,7 +68,7 @@ Push the repo to GitHub, then run **Actions → Build Windows EXE → Run workfl
 The built installer artifacts will be uploaded as:
 
 ```txt
-gemma-diagram-brainstormer-windows
+archimedes-agent-windows
 ```
 
 ## Notes

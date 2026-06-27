@@ -1,8 +1,8 @@
-# Plan: Tauri diagramming app with local Gemma brainstorming assistant
+# Plan: Tauri diagramming app with local architecture brainstorming assistant
 
 ## Context
 
-Build a desktop Tauri app for creating system-design and architecture diagrams. The main workspace should be an Excalidraw-style canvas, while a right-side assistant panel connects to a local Gemma-class model and comments on the diagram, asks clarifying questions, points out tradeoffs, and helps the user brainstorm.
+Build a desktop Tauri app for creating system-design and architecture diagrams. The main workspace should be an Excalidraw-style canvas, while a right-side assistant panel connects to a local local vision model and comments on the diagram, asks clarifying questions, points out tradeoffs, and helps the user brainstorm.
 
 Initial repo scan: this repository is currently empty apart from `.git`, so this plan assumes a new app scaffold.
 

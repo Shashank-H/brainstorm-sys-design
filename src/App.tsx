@@ -12,7 +12,8 @@ import './styles.css';
 const AUTO_REVIEW_INTERVAL_MS = 20_000;
 const AUTO_REVIEW_MAX_WAIT_MS = 60_000;
 const MIN_ELEMENTS_FOR_PROACTIVE_REVIEW = 2;
-const SIDEBAR_WIDTH_KEY = 'gemma-diagram.sidebarWidth.v1';
+const SIDEBAR_WIDTH_KEY = 'archimedes-agent.sidebarWidth.v1';
+const LEGACY_SIDEBAR_WIDTH_KEY = 'gemma-diagram.sidebarWidth.v1';
 const DEFAULT_SIDEBAR_WIDTH = 420;
 const MIN_SIDEBAR_WIDTH = 320;
 const MAX_SIDEBAR_WIDTH = 720;
@@ -25,7 +26,7 @@ function clampSidebarWidth(width: number) {
 
 function loadSidebarWidth() {
   if (typeof localStorage === 'undefined') return DEFAULT_SIDEBAR_WIDTH;
-  const stored = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+  const stored = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY) ?? localStorage.getItem(LEGACY_SIDEBAR_WIDTH_KEY));
   return clampSidebarWidth(Number.isFinite(stored) && stored > 0 ? stored : DEFAULT_SIDEBAR_WIDTH);
 }
 

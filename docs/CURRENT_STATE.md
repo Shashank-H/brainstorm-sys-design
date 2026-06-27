@@ -8,7 +8,7 @@ A local-first diagramming and brainstorming app:
 
 - User draws architecture/system-design diagrams.
 - Excalidraw handles drawing.
-- A right-side assistant powered by local Ollama/Gemma reviews the diagram.
+- A right-side assistant powered by local Ollama reviews the diagram.
 - The assistant can comment manually or proactively.
 
 ## Current implementation status
@@ -90,7 +90,7 @@ Vite serves the app at:
 http://localhost:1420
 ```
 
-### Ollama/Gemma vision
+### Ollama vision
 
 A real PNG test succeeded. `gemma4:e4b` correctly read `TEST 739` and identified colored shapes.
 

@@ -1,4 +1,4 @@
-# Low Level Design: Gemma Diagram Brainstormer
+# Low Level Design: Archimedes Agent
 
 ## 1. System overview
 
@@ -168,9 +168,9 @@ Guardrails:
 
 Use local storage keys:
 
-- `gemma-diagram.settings.v1`
-- `gemma-diagram.scene.v1`
-- `gemma-diagram.chat.v1`
+- `archimedes-agent.settings.v1`
+- `archimedes-agent.scene.v1`
+- `archimedes-agent.chat.v1`
 
 Persist:
 

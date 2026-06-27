@@ -1,6 +1,6 @@
-# Gemma Diagram Brainstormer
+# Archimedes Agent
 
-A local-first desktop/web prototype for drawing system-design diagrams with Excalidraw and brainstorming with a right-side Gemma assistant.
+A local-first desktop/web prototype for drawing system-design diagrams with Excalidraw and brainstorming with a right-side Archimedes assistant.
 
 The app embeds Excalidraw as the diagramming surface and sends an exported diagram image to a local Ollama model (`gemma4:e4b` by default). The assistant reviews the diagram, asks questions, highlights risks, and suggests improvements.
 
@@ -38,7 +38,7 @@ The assistant is image-first:
 3. The app converts the image Blob to base64.
 4. It sends the base64 image to Ollama in the `images` array of a `/api/chat` request.
 5. It also sends a small text metadata summary: labels, arrows, element count, groups, unlabeled components.
-6. Gemma streams a response into the assistant panel.
+6. Archimedes streams a response into the assistant panel.
 
 The full Excalidraw scene JSON is saved locally for persistence, but it is not sent wholesale to Ollama.
 

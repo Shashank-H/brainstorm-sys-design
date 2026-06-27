@@ -44,7 +44,7 @@ The app has two panes:
 
 ```txt
 +---------------------------+----------------------+
-| Excalidraw diagram canvas | Gemma Reviewer panel |
+| Excalidraw diagram canvas | Archimedes Agent panel |
 +---------------------------+----------------------+
 ```
 
@@ -115,7 +115,7 @@ Current behavior:
 1. You make a meaningful diagram change.
 2. The app waits for inactivity.
 3. After the delay, it exports the current diagram image.
-4. It asks Gemma for one concise observation or question.
+4. It asks Archimedes for one concise observation or question.
 
 Defaults:
 
@@ -176,9 +176,9 @@ The app saves these in browser/webview localStorage:
 Storage keys:
 
 ```txt
-gemma-diagram.settings.v1
-gemma-diagram.scene.v1
-gemma-diagram.chat.v1
+archimedes-agent.settings.v1
+archimedes-agent.scene.v1
+archimedes-agent.chat.v1
 ```
 
 ## Tips for better reviews

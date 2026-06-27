@@ -1202,7 +1202,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "gemma-diagram-brainstormer"
+name = "archimedes-agent"
 version = "0.1.0"
 dependencies = [
  "serde",

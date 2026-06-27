@@ -12,7 +12,7 @@ If you still see it:
 2. Clear localStorage keys:
 
 ```js
-localStorage.removeItem('gemma-diagram.chat.v1')
+localStorage.removeItem('archimedes-agent.chat.v1')
 ```
 
 or clear all app storage for `localhost:1420`.
@@ -30,7 +30,7 @@ If you still see it:
 3. Clear localStorage scene if corrupted:
 
 ```js
-localStorage.removeItem('gemma-diagram.scene.v1')
+localStorage.removeItem('archimedes-agent.scene.v1')
 ```
 
 ## Vite says port 1420 is already in use
@@ -231,9 +231,9 @@ Or adjust PowerShell execution policy if appropriate for your machine.
 In browser dev tools console:
 
 ```js
-localStorage.removeItem('gemma-diagram.settings.v1')
-localStorage.removeItem('gemma-diagram.scene.v1')
-localStorage.removeItem('gemma-diagram.chat.v1')
+localStorage.removeItem('archimedes-agent.settings.v1')
+localStorage.removeItem('archimedes-agent.scene.v1')
+localStorage.removeItem('archimedes-agent.chat.v1')
 location.reload()
 ```
 

@@ -1,12 +1,15 @@
 import { DEFAULT_SETTINGS, type AppSettings, type ChatMessage, type DiagramSnapshot } from '../types';
 
-const SETTINGS_KEY = 'gemma-diagram.settings.v1';
-const SCENE_KEY = 'gemma-diagram.scene.v1';
-const CHAT_KEY = 'gemma-diagram.chat.v1';
+const SETTINGS_KEY = 'archimedes-agent.settings.v1';
+const SCENE_KEY = 'archimedes-agent.scene.v1';
+const CHAT_KEY = 'archimedes-agent.chat.v1';
+const LEGACY_SETTINGS_KEY = 'gemma-diagram.settings.v1';
+const LEGACY_SCENE_KEY = 'gemma-diagram.scene.v1';
+const LEGACY_CHAT_KEY = 'gemma-diagram.chat.v1';
 
-function readJson<T>(key: string, fallback: T): T {
+function readJson<T>(key: string, fallback: T, legacyKey?: string): T {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = localStorage.getItem(key) ?? (legacyKey ? localStorage.getItem(legacyKey) : null);
     if (!raw) return fallback;
 
     const parsed = JSON.parse(raw);
@@ -32,7 +35,7 @@ function writeJson(key: string, value: unknown) {
 }
 
 export function loadSettings(): AppSettings {
-  return readJson<AppSettings>(SETTINGS_KEY, DEFAULT_SETTINGS);
+  return readJson<AppSettings>(SETTINGS_KEY, DEFAULT_SETTINGS, LEGACY_SETTINGS_KEY);
 }
 
 export function saveSettings(settings: AppSettings) {
@@ -40,7 +43,7 @@ export function saveSettings(settings: AppSettings) {
 }
 
 export function loadScene(): DiagramSnapshot | null {
-  return readJson<DiagramSnapshot | null>(SCENE_KEY, null);
+  return readJson<DiagramSnapshot | null>(SCENE_KEY, null, LEGACY_SCENE_KEY);
 }
 
 export function saveScene(snapshot: DiagramSnapshot) {
@@ -48,7 +51,7 @@ export function saveScene(snapshot: DiagramSnapshot) {
 }
 
 export function loadChat(): ChatMessage[] {
-  return readJson<ChatMessage[]>(CHAT_KEY, []);
+  return readJson<ChatMessage[]>(CHAT_KEY, [], LEGACY_CHAT_KEY);
 }
 
 export function saveChat(messages: ChatMessage[]) {
