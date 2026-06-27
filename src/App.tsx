@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { AssistantPanel } from './components/AssistantPanel';
 import { DiagramCanvas } from './components/DiagramCanvas';
 import { exportDiagramImage } from './lib/diagramImage';
@@ -12,6 +12,22 @@ import './styles.css';
 const AUTO_REVIEW_INTERVAL_MS = 20_000;
 const AUTO_REVIEW_MAX_WAIT_MS = 60_000;
 const MIN_ELEMENTS_FOR_PROACTIVE_REVIEW = 2;
+const SIDEBAR_WIDTH_KEY = 'gemma-diagram.sidebarWidth.v1';
+const DEFAULT_SIDEBAR_WIDTH = 420;
+const MIN_SIDEBAR_WIDTH = 320;
+const MAX_SIDEBAR_WIDTH = 720;
+const MIN_CANVAS_WIDTH = 420;
+
+function clampSidebarWidth(width: number) {
+  const viewportLimit = typeof window === 'undefined' ? MAX_SIDEBAR_WIDTH : Math.max(MIN_SIDEBAR_WIDTH, window.innerWidth - MIN_CANVAS_WIDTH);
+  return Math.min(Math.max(width, MIN_SIDEBAR_WIDTH), Math.min(MAX_SIDEBAR_WIDTH, viewportLimit));
+}
+
+function loadSidebarWidth() {
+  if (typeof localStorage === 'undefined') return DEFAULT_SIDEBAR_WIDTH;
+  const stored = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+  return clampSidebarWidth(Number.isFinite(stored) && stored > 0 ? stored : DEFAULT_SIDEBAR_WIDTH);
+}
 
 function id(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -26,6 +42,7 @@ export default function App() {
   const initialSnapshot = useMemo(() => loadScene(), []);
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadChat());
+  const [sidebarWidth, setSidebarWidth] = useState(loadSidebarWidth);
   const [isBusy, setIsBusy] = useState(false);
   const [status, setStatus] = useState('Local Ollama · gemma4:e4b');
 
@@ -46,6 +63,21 @@ export default function App() {
   useEffect(() => {
     saveChat(messages);
   }, [messages]);
+
+  useEffect(() => {
+    const nextWidth = clampSidebarWidth(sidebarWidth);
+    if (nextWidth !== sidebarWidth) {
+      setSidebarWidth(nextWidth);
+      return;
+    }
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(nextWidth));
+  }, [sidebarWidth]);
+
+  useEffect(() => {
+    const handleWindowResize = () => setSidebarWidth((width) => clampSidebarWidth(width));
+    window.addEventListener('resize', handleWindowResize);
+    return () => window.removeEventListener('resize', handleWindowResize);
+  }, []);
 
   useEffect(() => {
     isBusyRef.current = isBusy;
@@ -214,8 +246,52 @@ export default function App() {
     };
   }, []);
 
+  const resizeSidebarFromClientX = (clientX: number) => {
+    setSidebarWidth(clampSidebarWidth(window.innerWidth - clientX));
+  };
+
+  const handleResizePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    resizeSidebarFromClientX(event.clientX);
+    document.body.classList.add('is-resizing-sidebar');
+
+    const handlePointerMove = (moveEvent: globalThis.PointerEvent) => {
+      resizeSidebarFromClientX(moveEvent.clientX);
+    };
+
+    const handlePointerUp = () => {
+      document.body.classList.remove('is-resizing-sidebar');
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp, { once: true });
+    window.addEventListener('pointercancel', handlePointerUp, { once: true });
+  };
+
+  const handleResizeKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      setSidebarWidth((width) => clampSidebarWidth(width + 24));
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      setSidebarWidth((width) => clampSidebarWidth(width - 24));
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      setSidebarWidth(MIN_SIDEBAR_WIDTH);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      setSidebarWidth(MAX_SIDEBAR_WIDTH);
+    }
+  };
+
   return (
-    <main className={`app-shell theme-${settings.theme}`}>
+    <main
+      className={`app-shell theme-${settings.theme}`}
+      style={{ '--sidebar-width': `${sidebarWidth}px` } as CSSProperties}
+    >
       <section className="canvas-pane">
         <DiagramCanvas
           initialSnapshot={initialSnapshot}
@@ -226,6 +302,18 @@ export default function App() {
           }}
         />
       </section>
+      <div
+        className="sidebar-resizer"
+        role="separator"
+        aria-label="Resize assistant sidebar"
+        aria-orientation="vertical"
+        aria-valuemin={MIN_SIDEBAR_WIDTH}
+        aria-valuemax={MAX_SIDEBAR_WIDTH}
+        aria-valuenow={sidebarWidth}
+        tabIndex={0}
+        onPointerDown={handleResizePointerDown}
+        onKeyDown={handleResizeKeyDown}
+      />
       <AssistantPanel
         messages={messages}
         settings={settings}
