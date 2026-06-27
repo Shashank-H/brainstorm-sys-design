@@ -814,11 +814,31 @@ body.is-resizing-sidebar .sidebar-resizer::after { opacity: 1; }
 }
 .setup-steps h3,
 .vision-model-card h3 {
-  margin: 0 0 4px;
+  margin: 0;
   color: var(--ink);
   font-size: 15px;
   line-height: 20px;
   letter-spacing: -0.24px;
+}
+.setup-steps h3 { margin-bottom: 4px; }
+.vision-model-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.model-copy-button {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  padding: 0;
+  border-radius: 999px;
+  color: var(--ink);
+  background: var(--canvas-soft-2);
 }
 .vision-model-list {
   display: flex;
@@ -836,14 +856,6 @@ body.is-resizing-sidebar .sidebar-resizer::after { opacity: 1; }
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-}
-.vision-model-actions button {
-  height: 32px;
-  min-height: 32px;
-  border-radius: 999px;
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--on-primary);
 }
 .ollama-setup-tip {
   padding: 14px 16px;
