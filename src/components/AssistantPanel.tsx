@@ -86,6 +86,24 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
 
 const PROJECT_GITHUB_URL = 'https://github.com/Shashank-H/archimedes-agent';
 const X_PROFILE_URL = 'https://x.com/ShashankH_';
+const OLLAMA_VISION_MODELS_URL = 'https://ollama.com/search?c=vision';
+
+const RECOMMENDED_VISION_MODELS = [
+  {
+    name: 'Gemma 4 E2B',
+    tag: 'gemma4:e2b',
+    bestFor: 'System requirements: under 8GB RAM. Choose this for lightweight local diagram review on modest machines.',
+    command: 'ollama pull gemma4:e2b',
+    url: 'https://ollama.com/library/gemma4:e2b',
+  },
+  {
+    name: 'Gemma 4 E4B',
+    tag: 'gemma4:e4b',
+    bestFor: 'System requirements: 16GB RAM recommended. Choose this for higher-quality Archimedes diagram review.',
+    command: 'ollama pull gemma4:e4b',
+    url: 'https://ollama.com/library/gemma4:e4b',
+  },
+];
 
 const OPEN_SOURCE_CREDITS = [
   { name: 'Design.md Vercel analysis', packageName: 'getdesign.md/vercel/design-md', license: 'Independent public design analysis', url: 'https://getdesign.md/vercel/design-md', note: 'Vercel-inspired DESIGN.md reference used for visual direction; not affiliated with Vercel.' },
@@ -112,6 +130,7 @@ export function AssistantPanel({
   const [prompt, setPrompt] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [showCredits, setShowCredits] = useState(false);
+  const [showOllamaSetup, setShowOllamaSetup] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const resizePromptInput = () => {
@@ -126,13 +145,15 @@ export function AssistantPanel({
   }, [prompt]);
 
   useEffect(() => {
-    if (!showCredits) return;
+    if (!showCredits && !showOllamaSetup) return;
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') setShowCredits(false);
+      if (event.key !== 'Escape') return;
+      setShowCredits(false);
+      setShowOllamaSetup(false);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showCredits]);
+  }, [showCredits, showOllamaSetup]);
 
   const submit = () => {
     const value = prompt.trim();
@@ -183,6 +204,10 @@ export function AssistantPanel({
               onChange={(event) => onSettingsChange({ ...settings, model: event.target.value })}
             />
           </label>
+          <button type="button" className="secondary-settings-button" onClick={() => setShowOllamaSetup(true)}>
+            <Icon name="info" size={15} />
+            Setup local vision model
+          </button>
           <label>
             Temperature: {settings.temperature.toFixed(1)}
             <input
@@ -322,6 +347,80 @@ export function AssistantPanel({
             </div>
           </footer>
         </>
+      )}
+      {showOllamaSetup && (
+        <div className="credits-backdrop" role="presentation" onMouseDown={() => setShowOllamaSetup(false)}>
+          <section
+            className="credits-modal ollama-setup-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ollama-setup-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="credits-modal-header">
+              <div>
+                <p className="credits-kicker">Local Ollama</p>
+                <h2 id="ollama-setup-title">Set up a vision-supported model</h2>
+              </div>
+              <button type="button" className="credits-close-button" onClick={() => setShowOllamaSetup(false)} aria-label="Close Ollama setup">
+                <Icon name="x" size={15} />
+              </button>
+            </header>
+            <div className="credits-scroll ollama-setup-scroll">
+              <div className="ollama-setup-content">
+                <p>
+                  Archimedes needs an Ollama model with image/vision support so it can inspect your diagrams. Browse the live Ollama catalogue here:{' '}
+                  <a href={OLLAMA_VISION_MODELS_URL} target="_blank" rel="noreferrer">open all vision models</a>.
+                </p>
+
+                <div className="setup-steps" aria-label="Ollama setup steps">
+                  <article>
+                    <span>1</span>
+                    <div>
+                      <h3>Install and start Ollama</h3>
+                      <p>Install Ollama from <a href="https://ollama.com/download" target="_blank" rel="noreferrer">ollama.com/download</a>, then start the local server.</p>
+                      <code>ollama serve</code>
+                    </div>
+                  </article>
+                  <article>
+                    <span>2</span>
+                    <div>
+                      <h3>Pick a model for your hardware</h3>
+                      <p>Use the recommended Gemma command below, or choose any other tag from the vision model list if your hardware or quality requirements differ.</p>
+                    </div>
+                  </article>
+                  <article>
+                    <span>3</span>
+                    <div>
+                      <h3>Save and test</h3>
+                      <p>Enter the exact model tag in Settings, keep the endpoint as <code>http://localhost:11434</code> unless you changed it, then click <strong>Test Ollama</strong>.</p>
+                    </div>
+                  </article>
+                </div>
+
+                <div className="vision-model-list">
+                  {RECOMMENDED_VISION_MODELS.map((model) => (
+                    <article className="vision-model-card" key={model.tag}>
+                      <div>
+                        <h3>{model.name}</h3>
+                        <p>{model.bestFor}</p>
+                      </div>
+                      <code>{model.command}</code>
+                      <div className="vision-model-actions">
+                        <button type="button" onClick={() => onSettingsChange({ ...settings, model: model.tag })}>Use {model.tag}</button>
+                        <a href={model.url} target="_blank" rel="noreferrer">View model</a>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+
+                <p className="ollama-setup-tip">
+                  Recommended command: <code>ollama pull gemma4:e4b</code>. After it finishes, click <strong>Use gemma4:e4b</strong> or enter <code>gemma4:e4b</code> in the Model field. If you pick a different vision model from the catalogue, use its exact tag in both the pull command and the Model field.
+                </p>
+              </div>
+            </div>
+          </section>
+        </div>
       )}
       {showCredits && (
         <div className="credits-backdrop" role="presentation" onMouseDown={() => setShowCredits(false)}>

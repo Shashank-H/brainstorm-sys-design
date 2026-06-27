@@ -740,6 +740,97 @@ body.is-resizing-sidebar .sidebar-resizer::after { opacity: 1; }
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
+.ollama-setup-modal { width: min(760px, calc(100vw - 40px)); }
+.ollama-setup-content {
+  display: grid;
+  gap: 18px;
+  padding: 18px 22px 22px;
+  color: var(--body);
+  line-height: 20px;
+}
+.ollama-setup-content p { margin: 0; }
+.ollama-setup-content a {
+  color: var(--link);
+  font-weight: 500;
+  text-underline-offset: 3px;
+}
+.ollama-setup-content code {
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--canvas-soft-2);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 2px 6px;
+  overflow-wrap: anywhere;
+}
+.setup-steps {
+  display: grid;
+  gap: 10px;
+}
+.setup-steps article,
+.vision-model-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--canvas);
+  box-shadow: var(--shadow-1);
+}
+.setup-steps article {
+  grid-template-columns: 28px 1fr;
+  align-items: start;
+}
+.setup-steps article > span {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--on-primary);
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 12px;
+}
+.setup-steps h3,
+.vision-model-card h3 {
+  margin: 0 0 4px;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 20px;
+  letter-spacing: -0.24px;
+}
+.vision-model-list {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.vision-model-card {
+  flex: 1 0 220px;
+}
+.vision-model-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.vision-model-actions button {
+  height: 32px;
+  min-height: 32px;
+  border-radius: 999px;
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--on-primary);
+}
+.ollama-setup-tip {
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--canvas);
+  box-shadow: var(--shadow-1);
+}
 .excalidraw { --color-primary: var(--ink); }
 
 .theme-dark {
@@ -801,4 +892,6 @@ body.is-resizing-sidebar .sidebar-resizer::after { opacity: 1; }
   .composer { margin: 0 12px 12px; padding: 10px; border-radius: 20px; }
   .input-action-button { min-width: 82px; padding-right: 10px; }
   .credit-card dl { grid-template-columns: 1fr; }
+  .vision-model-list { flex-direction: column; overflow-x: visible; }
+  .vision-model-card { flex-basis: auto; }
 }
