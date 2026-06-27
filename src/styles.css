@@ -564,8 +564,12 @@ body.is-resizing-sidebar .sidebar-resizer::after { opacity: 1; }
   line-height: 20px;
   box-shadow: var(--shadow-1);
 }
-.settings-footer {
+.settings-bottom-actions {
   margin-top: auto;
+  display: grid;
+  gap: 10px;
+}
+.settings-footer {
   padding-top: 10px;
   display: flex;
   align-items: center;
@@ -576,6 +580,22 @@ body.is-resizing-sidebar .sidebar-resizer::after { opacity: 1; }
   font-size: 12px;
   line-height: 16px;
   letter-spacing: -0.12px;
+}
+.theme-footer-button {
+  width: fit-content;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  background: var(--canvas);
+  box-shadow: var(--shadow-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--ink);
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 12px;
+  line-height: 16px;
 }
 .settings-socials {
   display: inline-flex;

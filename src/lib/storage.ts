@@ -34,8 +34,13 @@ function writeJson(key: string, value: unknown) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+function getBrowserTheme(): AppSettings['theme'] {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return DEFAULT_SETTINGS.theme;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
 export function loadSettings(): AppSettings {
-  return readJson<AppSettings>(SETTINGS_KEY, DEFAULT_SETTINGS, LEGACY_SETTINGS_KEY);
+  return readJson<AppSettings>(SETTINGS_KEY, { ...DEFAULT_SETTINGS, theme: getBrowserTheme() }, LEGACY_SETTINGS_KEY);
 }
 
 export function saveSettings(settings: AppSettings) {

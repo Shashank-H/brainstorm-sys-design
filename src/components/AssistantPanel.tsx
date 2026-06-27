@@ -20,6 +20,7 @@ type IconName =
   | 'message'
   | 'plug'
   | 'moon'
+  | 'sun'
   | 'zap'
   | 'sparkles'
   | 'play'
@@ -57,6 +58,8 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
       return <svg {...common}><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a6 6 0 0 1-12 0V8h12Z"/></svg>;
     case 'moon':
       return <svg {...common}><path d="M20.9 13.5A8.5 8.5 0 1 1 10.5 3.1 6.7 6.7 0 0 0 20.9 13.5Z"/></svg>;
+    case 'sun':
+      return <svg {...common}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>;
     case 'zap':
       return <svg {...common}><path d="M13 2 3 14h8l-1 8 11-14h-8l1-6Z"/></svg>;
     case 'sparkles':
@@ -219,24 +222,6 @@ export function AssistantPanel({
               onChange={(event) => onSettingsChange({ ...settings, temperature: Number(event.target.value) })}
             />
           </label>
-          <label className="checkbox-row">
-            <input
-              type="checkbox"
-              checked={settings.theme === 'dark'}
-              onChange={(event) => onSettingsChange({ ...settings, theme: event.target.checked ? 'dark' : 'light' })}
-            />
-            <Icon name="moon" size={15} />
-            Dark theme
-          </label>
-          <label className="checkbox-row">
-            <input
-              type="checkbox"
-              checked={settings.autoReview}
-              onChange={(event) => onSettingsChange({ ...settings, autoReview: event.target.checked })}
-            />
-            <Icon name="zap" size={15} />
-            Proactive diagram review
-          </label>
           <button onClick={onTestConnection} disabled={isBusy}>
             <Icon name="plug" size={15} />
             Test Ollama
@@ -246,14 +231,26 @@ export function AssistantPanel({
             Open source credits
           </button>
           <p className="privacy-note">Local-only: prompts, images, chats, and diagrams are sent only to the configured Ollama endpoint.</p>
-          <footer className="settings-footer">
-            <span>Built by <a href={X_PROFILE_URL} target="_blank" rel="noreferrer">Shashank Harikripa</a></span>
-            <nav className="settings-socials" aria-label="Social links">
-              <a className="icon-link" href={PROJECT_GITHUB_URL} target="_blank" rel="noreferrer" aria-label="Open GitHub repository">
-                <Icon name="github" size={16} />
-              </a>
-            </nav>
-          </footer>
+          <div className="settings-bottom-actions">
+            <button
+              type="button"
+              className="theme-footer-button"
+              onClick={() => onSettingsChange({ ...settings, theme: settings.theme === 'dark' ? 'light' : 'dark' })}
+              aria-label={settings.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              title={settings.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            >
+              <Icon name={settings.theme === 'dark' ? 'sun' : 'moon'} size={15} />
+              <span>{settings.theme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
+            </button>
+            <footer className="settings-footer">
+              <span>Built by <a href={X_PROFILE_URL} target="_blank" rel="noreferrer">Shashank Harikripa</a></span>
+              <nav className="settings-socials" aria-label="Social links">
+                <a className="icon-link" href={PROJECT_GITHUB_URL} target="_blank" rel="noreferrer" aria-label="Open GitHub repository">
+                  <Icon name="github" size={16} />
+                </a>
+              </nav>
+            </footer>
+          </div>
         </section>
       ) : (
         <>
