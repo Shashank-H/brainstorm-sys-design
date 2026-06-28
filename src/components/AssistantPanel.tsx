@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { MarkdownMessage } from './MarkdownMessage';
+import { CustomSelect } from './CustomSelect';
 import { useProviderSettings } from '../hooks/useProviderSettings';
 import type { AppSettings, ChatMessage, LlmProvider, ThinkingLevel } from '../types';
 
@@ -97,6 +98,13 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
 const PROJECT_GITHUB_URL = 'https://github.com/Shashank-H/archimedes-agent';
 const X_PROFILE_URL = 'https://x.com/ShashankH_';
 const OLLAMA_VISION_MODELS_URL = 'https://ollama.com/search?c=vision';
+const THINKING_OPTIONS = [
+  { value: 'off', label: 'Off' },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+];
+
 const RECOMMENDED_VISION_MODELS = [
   {
     name: 'Gemma 4 E2B',
@@ -237,15 +245,14 @@ export function AssistantPanel({
       {showSettings ? (
         <section className="settings-section">
           <label>
-            API shape
-            <select
+            Provider
+            <CustomSelect
+              ariaLabel="Provider"
               value={settings.provider}
-              onChange={(event) => updateProvider(event.target.value as LlmProvider)}
-            >
-              {providerOptions.map((provider) => (
-                <option key={provider.id} value={provider.id}>{provider.label}</option>
-              ))}
-            </select>
+              options={providerOptions.map((provider) => ({ value: provider.id, label: provider.label }))}
+              onChange={(value) => updateProvider(value as LlmProvider)}
+              className="settings-provider-select"
+            />
           </label>
           <label>
             Endpoint / base URL
@@ -384,21 +391,17 @@ export function AssistantPanel({
 
           <footer className="composer">
             <div className="composer-options">
-              <label className="thinking-control" title="Thinking level">
+              <div className="thinking-control" title="Thinking level">
                 <Icon name="brain" size={15} />
-                <select
-                  aria-label="Thinking level"
+                <CustomSelect
+                  ariaLabel="Thinking level"
                   value={settings.thinkingLevel}
-                  onChange={(event) => onSettingsChange({ ...settings, thinkingLevel: event.target.value as ThinkingLevel })}
+                  options={THINKING_OPTIONS}
+                  onChange={(value) => onSettingsChange({ ...settings, thinkingLevel: value as ThinkingLevel })}
                   disabled={isBusy}
-                >
-                  <option value="off">Off</option>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-                <Icon name="chevronDown" size={12} />
-              </label>
+                  className="thinking-select"
+                />
+              </div>
               <button
                 type="button"
                 className="composer-clear-button clear-button"

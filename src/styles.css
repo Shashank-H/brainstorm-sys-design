@@ -406,40 +406,168 @@ body.is-resizing-sidebar .sidebar-resizer::after { opacity: 1; }
 }
 .thinking-control {
   position: relative;
-  height: 32px;
-  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 8px 0 10px;
   border: 1px solid var(--hairline);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.74);
   color: var(--body);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.82) inset;
 }
-.thinking-control > svg:first-child { color: var(--ink); }
-.thinking-control > svg:last-child {
-  color: var(--mute);
-  pointer-events: none;
-  margin-left: -4px;
-}
-.composer-options .thinking-control select {
-  width: 64px;
-  height: 28px;
-  border: 0;
-  padding: 0 12px 0 2px;
-  background: transparent;
+.thinking-control > svg:first-child {
+  flex: 0 0 auto;
   color: var(--ink);
-  appearance: none;
-  -webkit-appearance: none;
-  outline: 0;
-  box-shadow: none;
-  cursor: pointer;
 }
-.composer-options .thinking-control select option {
+.custom-select {
+  position: relative;
+  width: 100%;
+  color: var(--ink);
+}
+.custom-select-trigger {
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  height: 32px;
+  min-height: 32px;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
   background: var(--canvas);
   color: var(--ink);
+  padding: 0 10px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: -0.28px;
+  box-shadow: none;
 }
-.composer select,
-.settings-section input,
-.settings-section select {
+.custom-select-trigger:hover:not(:disabled) {
+  background: var(--canvas-soft-2);
+  border-color: #d4d4d4;
+}
+.custom-select-trigger:active:not(:disabled),
+.custom-select-option:active:not(:disabled) {
+  transform: none;
+}
+.custom-select-trigger:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+.custom-select[data-open="true"] .custom-select-trigger {
+  border-color: var(--link);
+  box-shadow: 0 0 0 3px rgba(0, 112, 243, 0.12), var(--shadow-1);
+}
+.custom-select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.custom-select-caret {
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid var(--mute);
+  border-bottom: 1.5px solid var(--mute);
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 180ms ease;
+}
+.custom-select[data-open="true"] .custom-select-caret { transform: translateY(2px) rotate(225deg); }
+.custom-select-menu {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  display: grid;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--canvas);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.02), 0 8px 16px -4px rgba(0, 0, 0, 0.04), 0 24px 32px -8px rgba(0, 0, 0, 0.06), inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+.custom-select-option {
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  height: 32px;
+  min-height: 32px;
+  justify-content: flex-start;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--body);
+  padding: 0 8px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: -0.28px;
+  text-align: left;
+  box-shadow: none;
+}
+.custom-select-option:hover,
+.custom-select-option[data-active="true"] {
+  background: var(--canvas-soft-2);
+  color: var(--ink);
+}
+.custom-select-option[data-selected="true"] {
+  background: var(--canvas-soft-2);
+  color: var(--ink);
+  font-weight: 500;
+}
+.thinking-select {
+  width: auto;
+  min-width: 0;
+}
+.thinking-select .custom-select-trigger {
+  width: auto;
+  height: 28px;
+  min-height: 0;
+  justify-content: flex-start;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0;
+  box-shadow: none;
+}
+.thinking-select .custom-select-value {
+  min-width: 43px;
+}
+.thinking-select .custom-select-caret {
+  width: 5px;
+  height: 5px;
+  border-width: 1.25px;
+  transform: translateY(-1px) rotate(45deg);
+}
+.thinking-select[data-open="true"] .custom-select-caret { transform: translateY(1px) rotate(225deg); }
+.thinking-select .custom-select-trigger:hover:not(:disabled) { background: transparent; }
+.thinking-select[data-open="true"] .custom-select-trigger { box-shadow: none; border-color: transparent; }
+.thinking-select .custom-select-menu {
+  top: calc(100% + 8px);
+  left: auto;
+  right: -8px;
+  width: 104px;
+  gap: 2px;
+  padding: 5px;
+}
+.thinking-select .custom-select-option {
+  height: 28px;
+  min-height: 28px;
+  padding: 0 8px;
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0;
+}
+.settings-section input {
   height: 32px;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-sm);
@@ -481,7 +609,7 @@ body.is-resizing-sidebar .sidebar-resizer::after { opacity: 1; }
   background: var(--canvas);
   box-shadow: none;
 }
-.composer select:focus, .settings-section input:focus {
+.settings-section input:focus {
   border-color: var(--link);
   box-shadow: 0 0 0 3px rgba(0, 112, 243, 0.12), var(--shadow-1);
 }
@@ -1075,7 +1203,11 @@ button.model-copy-button:hover:not(:disabled) {
   border-color: rgba(255, 255, 255, 0.12);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
 }
-.theme-dark .composer-options .thinking-control select option { background: #171717; color: #ffffff; }
+.theme-dark .custom-select-menu {
+  background: #171717;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.24), 0 8px 16px -4px rgba(0, 0, 0, 0.26), 0 24px 32px -8px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(255, 255, 255, 0.10);
+}
 .theme-dark .composer-clear-button { color: #ff6b6b; border-color: rgba(255, 107, 107, 0.30); background: rgba(255, 107, 107, 0.10); }
 .theme-dark .message.user { background: #07172b; box-shadow: inset 0 0 0 1px rgba(0, 112, 243, 0.42); }
 .theme-dark .message.error { background: #260707; box-shadow: inset 0 0 0 1px rgba(238, 0, 0, 0.38); }
