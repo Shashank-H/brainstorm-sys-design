@@ -1,17 +1,26 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { MarkdownMessage } from './MarkdownMessage';
-import type { AppSettings, ChatMessage, ThinkingLevel } from '../types';
+import { AppTooltip } from './AppTooltip';
+import { CustomSelect } from './CustomSelect';
+import { TooltipIconAction } from './TooltipIconAction';
+import { useProviderSettings } from '../hooks/useProviderSettings';
+import { useModelSelection } from '../hooks/useModelSelection';
+import { useMaskedApiKeyInput } from '../hooks/useMaskedApiKeyInput';
+import { useReviewTimingSettings } from '../hooks/useReviewTimingSettings';
+import { settingsValidationKey } from '../lib/settingsValidation';
+import type { AppSettings, ChatMessage, LlmProvider, ThinkingLevel } from '../types';
 
 type AssistantPanelProps = {
   messages: ChatMessage[];
   settings: AppSettings;
   isBusy: boolean;
   status: string;
+  modelValidationError?: string | null;
   onSendChat: (prompt: string) => void;
   onReview: (prompt?: string) => void;
   onSettingsChange: (settings: AppSettings) => void;
   onClearChat: () => void;
-  onTestConnection: () => void;
+  onTestConnection: () => boolean | Promise<boolean>;
 };
 
 type IconName =
@@ -32,6 +41,7 @@ type IconName =
   | 'info'
   | 'x'
   | 'github'
+  | 'eye'
   | 'copy'
   | 'check'
   | 'chevronDown';
@@ -84,6 +94,8 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
       return <svg {...common}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
     case 'github':
       return <svg {...common}><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.1-1.3-.3-2.6-1.2-3.6.2-1.2.2-2.5-.1-3.6 0 0-1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 1.5 5.5 1.8 5.5 1.8c-.3 1.1-.4 2.4-.1 3.6A5.3 5.3 0 0 0 4.2 9c0 3.5 3 5.5 6 5.5-.5.5-.8 1.2-.9 2"/><path d="M9 18c-4.5 2-5-2-7-2"/></svg>;
+    case 'eye':
+      return <svg {...common}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>;
     case 'copy':
       return <svg {...common}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>;
     case 'check':
@@ -96,6 +108,12 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
 const PROJECT_GITHUB_URL = 'https://github.com/Shashank-H/archimedes-agent';
 const X_PROFILE_URL = 'https://x.com/ShashankH_';
 const OLLAMA_VISION_MODELS_URL = 'https://ollama.com/search?c=vision';
+const THINKING_OPTIONS = [
+  { value: 'off', label: 'Off' },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+];
 
 const RECOMMENDED_VISION_MODELS = [
   {
@@ -119,30 +137,126 @@ const OPEN_SOURCE_CREDITS = [
   { name: 'Excalidraw', packageName: '@excalidraw/excalidraw', license: 'MIT', url: 'https://github.com/excalidraw/excalidraw', note: 'Embeddable whiteboard and diagram canvas.' },
   { name: 'Tauri', packageName: '@tauri-apps/api / @tauri-apps/cli', license: 'Apache-2.0 OR MIT', url: 'https://tauri.app', note: 'Desktop app runtime, APIs, and build tooling.' },
   { name: 'PostHog JS', packageName: 'posthog-js', license: 'See package LICENSE', url: 'https://posthog.com/docs/libraries/js', note: 'Privacy-aware product analytics client.' },
+  { name: 'Radix UI Tooltip', packageName: '@radix-ui/react-tooltip', license: 'MIT', url: 'https://www.radix-ui.com/primitives/docs/components/tooltip', note: 'Accessible Radix UI tooltip primitive used for consistent in-app tooltip behavior.' },
   { name: 'React', packageName: 'react / react-dom', license: 'MIT', url: 'https://react.dev', note: 'User-interface rendering framework.' },
   { name: 'Vite', packageName: 'vite / @vitejs/plugin-react', license: 'MIT', url: 'https://vite.dev', note: 'Development server and production bundler.' },
   { name: 'TypeScript', packageName: 'typescript', license: 'Apache-2.0', url: 'https://www.typescriptlang.org', note: 'Typed JavaScript language tooling.' },
   { name: 'DefinitelyTyped', packageName: '@types/node / @types/react / @types/react-dom', license: 'MIT', url: 'https://github.com/DefinitelyTyped/DefinitelyTyped', note: 'Community TypeScript type definitions.' },
 ];
 
+type LocalOllamaOs = 'windows' | 'mac' | 'linux';
+
+const OLLAMA_OS_OPTIONS: Array<{ value: LocalOllamaOs; label: string }> = [
+  { value: 'windows', label: 'Windows' },
+  { value: 'mac', label: 'macOS' },
+  { value: 'linux', label: 'Linux' },
+];
+
+function detectBrowserOs(): LocalOllamaOs {
+  if (typeof navigator === 'undefined') return 'mac';
+
+  const navigatorWithUserAgentData = navigator as Navigator & { userAgentData?: { platform?: string } };
+  const osHint = `${navigatorWithUserAgentData.userAgentData?.platform ?? ''} ${navigator.platform} ${navigator.userAgent}`.toLowerCase();
+
+  if (osHint.includes('win')) return 'windows';
+  if (osHint.includes('mac') || osHint.includes('iphone') || osHint.includes('ipad')) return 'mac';
+  if (osHint.includes('linux') || osHint.includes('x11') || osHint.includes('android') || osHint.includes('cros')) return 'linux';
+
+  return 'mac';
+}
+
+function useOllamaOriginInstructions(siteOrigin: string) {
+  const detectedOsRef = useRef<LocalOllamaOs | null>(null);
+  if (detectedOsRef.current === null) detectedOsRef.current = detectBrowserOs();
+
+  const [selectedOs, setSelectedOs] = useState<LocalOllamaOs>(detectedOsRef.current);
+  const instructions: Record<LocalOllamaOs, { backgroundCommand: string; permanentCommand: string; permanentNote: string; verifyCommand: string; description: string; quitSteps: string[]; quitCommand?: string }> = {
+    windows: {
+      backgroundCommand: `Start-Process powershell -WindowStyle Hidden -ArgumentList '-NoProfile -Command "$env:OLLAMA_ORIGINS=\"${siteOrigin}\"; ollama serve"'`,
+      permanentCommand: `setx OLLAMA_ORIGINS "${siteOrigin}"`,
+      permanentNote: 'Recommended. After running setx, quit and reopen Ollama. Windows applies setx values only to new processes.',
+      verifyCommand: `curl.exe -i -H "Origin: ${siteOrigin}" http://localhost:11434/api/tags`,
+      description: 'Use these steps to permanently allow this site, then reopen Ollama normally.',
+      quitSteps: [
+        'Click the Ollama llama icon in the Windows system tray and choose Quit, if it is visible.',
+        'If it is not visible, open Task Manager and end any Ollama or ollama.exe process.',
+        'PowerShell alternative:',
+      ],
+      quitCommand: 'taskkill /IM ollama.exe /F',
+    },
+    mac: {
+      backgroundCommand: `mkdir -p ~/.ollama && nohup env OLLAMA_ORIGINS="${siteOrigin}" ollama serve > ~/.ollama/ollama.log 2>&1 &`,
+      permanentCommand: `launchctl setenv OLLAMA_ORIGINS "${siteOrigin}"`,
+      permanentNote: 'Recommended for the Ollama desktop app. After running launchctl, quit and reopen the Ollama app. You may need to run it again after a reboot.',
+      verifyCommand: `curl -i -H "Origin: ${siteOrigin}" http://localhost:11434/api/tags`,
+      description: 'Use these steps to allow this site for the Ollama app, then reopen Ollama normally.',
+      quitSteps: [
+        'Click the Ollama llama icon in the macOS menu bar and choose Quit Ollama.',
+        'If the menu bar icon is not available, run the terminal command below to stop the background process.',
+      ],
+      quitCommand: 'pkill ollama',
+    },
+    linux: {
+      backgroundCommand: `sudo systemctl stop ollama 2>/dev/null || true; pkill ollama 2>/dev/null || true; mkdir -p ~/.ollama && nohup env OLLAMA_ORIGINS="${siteOrigin}" ollama serve > ~/.ollama/ollama.log 2>&1 &`,
+      permanentCommand: `sudo mkdir -p /etc/systemd/system/ollama.service.d && printf '%s\n' '[Service]' 'Environment="OLLAMA_ORIGINS=${siteOrigin}"' | sudo tee /etc/systemd/system/ollama.service.d/override.conf >/dev/null && sudo systemctl daemon-reload && sudo systemctl restart ollama`,
+      permanentNote: 'Recommended when Ollama is installed as a systemd service. It writes a service override and restarts Ollama automatically.',
+      verifyCommand: `curl -i -H "Origin: ${siteOrigin}" http://localhost:11434/api/tags`,
+      description: 'Use these steps to permanently allow this site for the Ollama service.',
+      quitSteps: [
+        'If Ollama is running as a systemd service, stop it first.',
+        'If you started Ollama manually, stop the process instead.',
+      ],
+      quitCommand: 'sudo systemctl stop ollama 2>/dev/null || true; pkill ollama 2>/dev/null || true',
+    },
+  };
+
+  return {
+    detectedOs: detectedOsRef.current,
+    selectedInstruction: instructions[selectedOs],
+    selectedOs,
+    setSelectedOs,
+  };
+}
+
 export function AssistantPanel({
   messages,
   settings,
   isBusy,
   status,
+  modelValidationError,
   onSendChat,
   onReview,
   onSettingsChange,
   onClearChat,
   onTestConnection,
 }: AssistantPanelProps) {
+  const providerConfigurationKey = settingsValidationKey(settings);
+  const providerConfigurationIsTested = settings.providerConfigurationTestedKey === providerConfigurationKey;
   const [prompt, setPrompt] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [showCredits, setShowCredits] = useState(false);
+  const [showUsageLogsInfo, setShowUsageLogsInfo] = useState(false);
+  const [providerConfigOpen, setProviderConfigOpen] = useState(!providerConfigurationIsTested);
+  const [reviewTimingOpen, setReviewTimingOpen] = useState(false);
   const [showOllamaSetup, setShowOllamaSetup] = useState(false);
-  const [copiedModelCommand, setCopiedModelCommand] = useState<string | null>(null);
+  const [copiedCommand, setCopiedCommand] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const modelListboxId = useId();
   const copyResetTimeoutRef = useRef<number | null>(null);
+  const {
+    providerOptions,
+    providerMetadata,
+    endpointPlaceholder,
+    modelPlaceholder,
+    testConnectionLabel,
+    modelInfoTooltip,
+    updateProvider,
+  } = useProviderSettings(settings, onSettingsChange);
+  const modelSelection = useModelSelection({ settings, onSettingsChange });
+  const maskedApiKeyInput = useMaskedApiKeyInput({ settings, onSettingsChange });
+  const reviewTiming = useReviewTimingSettings({ settings, onSettingsChange });
+  const currentSiteOrigin = typeof window === 'undefined' ? 'https://this-site.example' : window.location.origin;
+  const ollamaOriginInstructions = useOllamaOriginInstructions(currentSiteOrigin);
 
   const resizePromptInput = () => {
     const textarea = textareaRef.current;
@@ -156,15 +270,20 @@ export function AssistantPanel({
   }, [prompt]);
 
   useEffect(() => {
-    if (!showCredits && !showOllamaSetup) return;
+    setProviderConfigOpen(!providerConfigurationIsTested);
+  }, [providerConfigurationIsTested, providerConfigurationKey]);
+
+  useEffect(() => {
+    if (!showCredits && !showOllamaSetup && !showUsageLogsInfo) return;
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       setShowCredits(false);
       setShowOllamaSetup(false);
+      setShowUsageLogsInfo(false);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showCredits, showOllamaSetup]);
+  }, [showCredits, showOllamaSetup, showUsageLogsInfo]);
 
   useEffect(() => {
     return () => {
@@ -181,18 +300,43 @@ export function AssistantPanel({
     setPrompt('');
   };
 
-  const copyModelCommand = (command: string) => {
+  const copyCommand = (command: string) => {
     void navigator.clipboard?.writeText(command);
-    setCopiedModelCommand(command);
+    setCopiedCommand(command);
 
     if (copyResetTimeoutRef.current) {
       window.clearTimeout(copyResetTimeoutRef.current);
     }
 
     copyResetTimeoutRef.current = window.setTimeout(() => {
-      setCopiedModelCommand(null);
+      setCopiedCommand(null);
       copyResetTimeoutRef.current = null;
     }, 900);
+  };
+
+  const renderCopyableCommand = (command: string) => (
+    <div className="vision-model-command copyable-command">
+      <code>{command}</code>
+      <AppTooltip label={copiedCommand === command ? 'Copied' : `Copy ${command}`}>
+        <button
+          type="button"
+          className={`model-copy-button${copiedCommand === command ? ' is-copied' : ''}`}
+          onClick={() => copyCommand(command)}
+          aria-label={copiedCommand === command ? `Copied ${command}` : `Copy ${command}`}
+        >
+          <Icon name={copiedCommand === command ? 'check' : 'copy'} size={14} />
+        </button>
+      </AppTooltip>
+    </div>
+  );
+  
+  const updateEndpoint = (endpoint: string) => {
+    onSettingsChange({ ...settings, endpoint });
+  };
+
+  const handleSaveProviderConfiguration = async () => {
+    const isValid = await onTestConnection();
+    if (isValid) setProviderConfigOpen(false);
   };
 
   return (
@@ -203,82 +347,309 @@ export function AssistantPanel({
             <img className="logo-light" src="/logos/logo-light.svg" alt="" aria-hidden="true" />
             <img className="logo-dark" src="/logos/logo-dark.svg" alt="" aria-hidden="true" />
           </span>
-          <div>
-            <h1>Archimedes Agent</h1>
+          <div className="assistant-title-copy">
+            <div className="assistant-heading-row">
+              <h1>Archimedes Agent</h1>
+              <div className="assistant-header-actions">
+                <AppTooltip label={showSettings ? 'Back to chat' : 'Settings'}>
+                  <button
+                    className="settings-toggle"
+                    onClick={() => setShowSettings((value) => !value)}
+                    aria-label={showSettings ? 'Back to chat' : 'Open settings'}
+                  >
+                    <Icon name={showSettings ? 'message' : 'settings'} size={15} />
+                    <span>{showSettings ? 'Chat' : 'Settings'}</span>
+                  </button>
+                </AppTooltip>
+              </div>
+            </div>
             <p>{status}</p>
           </div>
-        </div>
-        <div className="assistant-header-actions">
-          <button
-            className="settings-toggle"
-            onClick={() => setShowSettings((value) => !value)}
-            aria-label={showSettings ? 'Back to chat' : 'Open settings'}
-            title={showSettings ? 'Back to chat' : 'Settings'}
-          >
-            <Icon name={showSettings ? 'message' : 'settings'} size={15} />
-            <span>{showSettings ? 'Chat' : 'Settings'}</span>
-          </button>
         </div>
       </header>
 
       {showSettings ? (
         <section className="settings-section">
-          <label>
-            Ollama endpoint
-            <input
-              value={settings.ollamaEndpoint}
-              onChange={(event) => onSettingsChange({ ...settings, ollamaEndpoint: event.target.value })}
-            />
-          </label>
-          <label>
-            Model
-            <input
-              value={settings.model}
-              onChange={(event) => onSettingsChange({ ...settings, model: event.target.value })}
-            />
-          </label>
-          <button type="button" className="secondary-settings-button" onClick={() => setShowOllamaSetup(true)}>
-            <Icon name="info" size={15} />
-            Setup local vision model
-          </button>
-          <label>
-            Temperature: {settings.temperature.toFixed(1)}
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={settings.temperature}
-              onChange={(event) => onSettingsChange({ ...settings, temperature: Number(event.target.value) })}
-            />
-          </label>
-          <button onClick={onTestConnection} disabled={isBusy}>
-            <Icon name="plug" size={15} />
-            Test Ollama
-          </button>
-          <button type="button" className="secondary-settings-button" onClick={() => setShowCredits(true)}>
-            <Icon name="info" size={15} />
-            Open source credits
-          </button>
-          <p className="privacy-note">Local-only: prompts, images, chats, and diagrams are sent only to the configured Ollama endpoint.</p>
-          <div className="settings-bottom-actions">
+          <div className="provider-config-accordion" data-open={providerConfigOpen ? 'true' : 'false'}>
             <button
               type="button"
-              className="theme-footer-button"
-              onClick={() => onSettingsChange({ ...settings, theme: settings.theme === 'dark' ? 'light' : 'dark' })}
-              aria-label={settings.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-              title={settings.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              className="provider-config-summary"
+              onClick={() => setProviderConfigOpen((value) => !value)}
+              aria-expanded={providerConfigOpen}
             >
-              <Icon name={settings.theme === 'dark' ? 'sun' : 'moon'} size={15} />
-              <span>{settings.theme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
+              <span>
+                <strong>Provider configuration</strong>
+                <small>{providerMetadata.label} · {settings.model}</small>
+              </span>
+              <Icon name="chevronDown" size={15} />
             </button>
+            {providerConfigOpen && (
+              <div className="provider-config-content">
+                <label>
+                  Provider
+                  <CustomSelect
+                    ariaLabel="Provider"
+                    value={settings.provider}
+                    options={providerOptions.map((provider) => ({ value: provider.id, label: provider.label }))}
+                    onChange={(value) => updateProvider(value as LlmProvider)}
+                    className="settings-provider-select"
+                  />
+                </label>
+                <label>
+                  Endpoint / base URL
+                  <input
+                    value={settings.endpoint}
+                    placeholder={endpointPlaceholder}
+                    onChange={(event) => updateEndpoint(event.target.value)}
+                  />
+                </label>
+                {providerMetadata.requiresApiKey && (
+                  <label>
+                    API key
+                    <input
+                      type="text"
+                      value={maskedApiKeyInput.displayValue}
+                      placeholder="Bearer token for this provider"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
+                      data-lpignore="true"
+                      data-1p-ignore="true"
+                      onKeyDown={maskedApiKeyInput.onKeyDown}
+                      onPaste={maskedApiKeyInput.onPaste}
+                      onChange={maskedApiKeyInput.onChange}
+                    />
+                  </label>
+                )}
+                <label>
+                  <span className="settings-inline-label">
+                    <span>Model</span>
+                    <AppTooltip label={modelInfoTooltip}>
+                      <button type="button" className="settings-help-icon" aria-label="Model endpoint information">
+                        <Icon name="info" size={13} />
+                      </button>
+                    </AppTooltip>
+                  </span>
+                  <div
+                    ref={modelSelection.rootRef}
+                    className="model-combobox"
+                    data-open={modelSelection.isOpen ? 'true' : 'false'}
+                    data-error={modelValidationError ? 'true' : 'false'}
+                  >
+                    <input
+                      value={settings.model}
+                      placeholder={modelPlaceholder}
+                      role="combobox"
+                      aria-autocomplete="list"
+                      aria-expanded={modelSelection.isOpen}
+                      aria-controls={modelListboxId}
+                      onFocus={modelSelection.openAndLoadModels}
+                      onClick={modelSelection.openAndLoadModels}
+                      onChange={modelSelection.onInputChange}
+                      onKeyDown={modelSelection.onInputKeyDown}
+                    />
+                    <span className="model-combobox-caret" aria-hidden="true">
+                      <Icon name="chevronDown" size={14} />
+                    </span>
+                    {modelSelection.isOpen && (
+                      <div id={modelListboxId} className="model-combobox-menu" role="listbox" aria-label="Available models">
+                        {modelSelection.filteredModels.map((model, index) => (
+                          <button
+                            type="button"
+                            key={model.value}
+                            className="model-combobox-option"
+                            role="option"
+                            aria-selected={model.value === settings.model}
+                            data-active={index === modelSelection.activeIndex ? 'true' : 'false'}
+                            data-selected={model.value === settings.model ? 'true' : 'false'}
+                            onClick={() => modelSelection.selectModel(model)}
+                          >
+                            <span>{model.label}</span>
+                            {model.supportsVision && <span className="model-vision-pill">Vision</span>}
+                          </button>
+                        ))}
+                        {modelSelection.statusText && (
+                          <p className="model-combobox-status" role={modelSelection.loadState === 'error' ? 'alert' : 'status'}>
+                            {modelSelection.statusText}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {modelValidationError && <p className="settings-field-error">{modelValidationError}</p>}
+                </label>
+                {settings.provider === 'ollama' && (
+                  <button type="button" className="secondary-settings-button" onClick={() => setShowOllamaSetup(true)}>
+                    <Icon name="info" size={15} />
+                    Setup local vision model
+                  </button>
+                )}
+                <label>
+                  Temperature: {settings.temperature.toFixed(1)}
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={settings.temperature}
+                    onChange={(event) => onSettingsChange({ ...settings, temperature: Number(event.target.value) })}
+                  />
+                </label>
+                <div className="provider-config-actions">
+                  <button onClick={handleSaveProviderConfiguration} disabled={isBusy}>
+                    <Icon name="plug" size={15} />
+                    {testConnectionLabel}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="provider-config-accordion" data-open={reviewTimingOpen ? 'true' : 'false'}>
+            <button
+              type="button"
+              className="provider-config-summary"
+              onClick={() => {
+                if (reviewTimingOpen) reviewTiming.resetDraft();
+                setReviewTimingOpen((value) => !value);
+              }}
+              aria-expanded={reviewTimingOpen}
+            >
+              <span>
+                <strong>Proactive review timing</strong>
+                <small>{reviewTiming.proactiveDelaySeconds}s debounce · {reviewTiming.proactiveTimeoutSeconds}s timeout</small>
+              </span>
+              <Icon name="chevronDown" size={15} />
+            </button>
+            {reviewTimingOpen && (
+              <div className="provider-config-content settings-timing-content">
+                <p className="settings-option-description">
+                  Tune how quickly Archimedes reviews changes while proactive mode is enabled.
+                </p>
+                <div className="settings-timing-grid">
+                  <label>
+                    <span className="settings-inline-label">
+                      <span>Debounce after changes</span>
+                      <AppTooltip label="How long to wait after the latest meaningful diagram change before starting a proactive review.">
+                        <button type="button" className="settings-help-icon" aria-label="Debounce timing information">
+                          <Icon name="info" size={13} />
+                        </button>
+                      </AppTooltip>
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="300"
+                      step="1"
+                      value={reviewTiming.draftDelaySeconds}
+                      onChange={(event) => reviewTiming.updateDraftDelaySeconds(event.target.value)}
+                    />
+                    <small>Seconds after the last edit.</small>
+                  </label>
+                  <label>
+                    <span className="settings-inline-label">
+                      <span>Maximum wait timeout</span>
+                      <AppTooltip label="The longest unsent diagram changes can wait before a proactive review is forced, even during continuous edits.">
+                        <button type="button" className="settings-help-icon" aria-label="Maximum wait timeout information">
+                          <Icon name="info" size={13} />
+                        </button>
+                      </AppTooltip>
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="300"
+                      step="1"
+                      value={reviewTiming.draftTimeoutSeconds}
+                      onChange={(event) => reviewTiming.updateDraftTimeoutSeconds(event.target.value)}
+                    />
+                    <small>Seconds before forcing a review.</small>
+                  </label>
+                </div>
+                <div className="provider-config-actions">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      reviewTiming.saveReviewTiming();
+                      setReviewTimingOpen(false);
+                    }}
+                  >
+                    <Icon name="check" size={15} />
+                    Save timing
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="settings-option-card">
+            <span className="settings-option-icon" aria-hidden="true">
+              <Icon name="message" size={16} />
+            </span>
+            <div className="settings-option-copy">
+              <div className="settings-option-title-row">
+                <span className="settings-option-title">Use chat history for auto reviews</span>
+                <AppTooltip label="When enabled, previous chat and review messages are sent to the LLM during proactive reviews. This can consume more tokens.">
+                  <button type="button" className="settings-help-icon" aria-label="Previous messages will be sent to the LLM and can consume more tokens.">
+                    <Icon name="info" size={13} />
+                  </button>
+                </AppTooltip>
+              </div>
+              <p className="settings-option-description">
+                Off by default. Enable only if proactive reviews should consider the previous conversation.
+              </p>
+              <span className="settings-option-warning">May increase token usage</span>
+            </div>
+            <button
+              type="button"
+              className="settings-switch"
+              role="switch"
+              aria-checked={settings.includeHistoryInProactiveReviews}
+              aria-label="Include chat history in proactive reviews"
+              data-state={settings.includeHistoryInProactiveReviews ? 'on' : 'off'}
+              onClick={() =>
+                onSettingsChange({
+                  ...settings,
+                  includeHistoryInProactiveReviews: !settings.includeHistoryInProactiveReviews,
+                })
+              }
+            >
+              <span className="settings-switch-thumb" />
+            </button>
+          </div>
+          <div className="settings-bottom-actions">
+            <div className="settings-footer-controls">
+              <AppTooltip label={settings.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>
+                <button
+                  type="button"
+                  className="theme-footer-button"
+                  onClick={() => onSettingsChange({ ...settings, theme: settings.theme === 'dark' ? 'light' : 'dark' })}
+                  aria-label={settings.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+                >
+                  <Icon name={settings.theme === 'dark' ? 'sun' : 'moon'} size={15} />
+                  <span>{settings.theme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
+                </button>
+              </AppTooltip>
+            </div>
             <footer className="settings-footer">
-              <span>Built by <a href={X_PROFILE_URL} target="_blank" rel="noreferrer">Shashank Harikripa</a></span>
-              <nav className="settings-socials" aria-label="Social links">
-                <a className="icon-link" href={PROJECT_GITHUB_URL} target="_blank" rel="noreferrer" aria-label="Open GitHub repository">
-                  <Icon name="github" size={16} />
-                </a>
-              </nav>
+              <div className="settings-footer-main">
+                <span className="settings-author-credit">Built by <a href={X_PROFILE_URL} target="_blank" rel="noreferrer">Shashank Harikripa</a></span>
+                <nav className="settings-socials" aria-label="Project links">
+                  <TooltipIconAction label="Visit project" href={PROJECT_GITHUB_URL} target="_blank" rel="noreferrer">
+                    <Icon name="github" size={16} />
+                  </TooltipIconAction>
+                  <TooltipIconAction label="Open source attributions" onClick={() => setShowCredits(true)}>
+                    <Icon name="eye" size={16} />
+                  </TooltipIconAction>
+                </nav>
+              </div>
+              <div className="usage-logs-row">
+                <p className="usage-logs-disclosure">
+                  Sends anonymized usage logs.{' '}
+                  <button type="button" onClick={() => setShowUsageLogsInfo(true)}>
+                    Learn more
+                  </button>
+                </p>
+              </div>
             </footer>
           </div>
         </section>
@@ -308,31 +679,30 @@ export function AssistantPanel({
 
           <footer className="composer">
             <div className="composer-options">
-              <label className="thinking-control" title="Thinking level">
-                <Icon name="brain" size={15} />
-                <select
-                  aria-label="Thinking level"
-                  value={settings.thinkingLevel}
-                  onChange={(event) => onSettingsChange({ ...settings, thinkingLevel: event.target.value as ThinkingLevel })}
-                  disabled={isBusy}
+              <AppTooltip label="Thinking level">
+                <div className="thinking-control">
+                  <Icon name="brain" size={15} />
+                  <CustomSelect
+                    ariaLabel="Thinking level"
+                    value={settings.thinkingLevel}
+                    options={THINKING_OPTIONS}
+                    onChange={(value) => onSettingsChange({ ...settings, thinkingLevel: value as ThinkingLevel })}
+                    disabled={isBusy}
+                    className="thinking-select"
+                  />
+                </div>
+              </AppTooltip>
+              <AppTooltip label="Clear chat">
+                <button
+                  type="button"
+                  className="composer-clear-button clear-button"
+                  onClick={onClearChat}
+                  disabled={isBusy || messages.length === 0}
+                  aria-label="Clear chat"
                 >
-                  <option value="off">Off</option>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-                <Icon name="chevronDown" size={12} />
-              </label>
-              <button
-                type="button"
-                className="composer-clear-button clear-button"
-                onClick={onClearChat}
-                disabled={isBusy || messages.length === 0}
-                aria-label="Clear chat"
-                title="Clear chat"
-              >
-                <Icon name="trash" size={15} />
-              </button>
+                  <Icon name="trash" size={15} />
+                </button>
+              </AppTooltip>
             </div>
 
             <div className="composer-input-wrap">
@@ -349,17 +719,18 @@ export function AssistantPanel({
             </div>
 
             <div className="composer-action-row">
-              <button
-                type="button"
-                onClick={() => onSettingsChange({ ...settings, autoReview: !settings.autoReview })}
-                className={`input-corner-toggle ${settings.autoReview ? 'proactive-button' : 'manual-button'}`}
-                aria-label={settings.autoReview ? 'Switch to manual review' : 'Switch to proactive review'}
-                title={settings.autoReview ? 'Currently proactive. Click for manual.' : 'Currently manual. Click for proactive.'}
-                disabled={isBusy}
-              >
-                <Icon name={settings.autoReview ? 'zap' : 'user'} size={14} />
-                <span>{settings.autoReview ? 'Proactive' : 'Manual'}</span>
-              </button>
+              <AppTooltip label={settings.autoReview ? 'Currently proactive. Click for manual.' : 'Currently manual. Click for proactive.'}>
+                <button
+                  type="button"
+                  onClick={() => onSettingsChange({ ...settings, autoReview: !settings.autoReview })}
+                  className={`input-corner-toggle ${settings.autoReview ? 'proactive-button' : 'manual-button'}`}
+                  aria-label={settings.autoReview ? 'Switch to manual review' : 'Switch to proactive review'}
+                  disabled={isBusy}
+                >
+                  <Icon name={settings.autoReview ? 'zap' : 'user'} size={14} />
+                  <span>{settings.autoReview ? 'Proactive' : 'Manual'}</span>
+                </button>
+              </AppTooltip>
               <button
                 className={`send-button unified-action-button input-action-button ${prompt.trim() ? 'send-mode' : 'review-mode'}`}
                 onClick={() => (prompt.trim() ? submit() : onReview())}
@@ -404,23 +775,75 @@ export function AssistantPanel({
                   <article>
                     <span>1</span>
                     <div>
-                      <h3>Install and start Ollama</h3>
-                      <p>Install Ollama from <a href="https://ollama.com/download" target="_blank" rel="noreferrer">ollama.com/download</a>, then start the local server.</p>
-                      <code>ollama serve</code>
+                      <h3>Install Ollama</h3>
+                      <p>Install Ollama from <a href="https://ollama.com/download" target="_blank" rel="noreferrer">ollama.com/download</a>. If Ollama is already running, quit it before restarting with the allowed site below.</p>
                     </div>
                   </article>
                   <article>
                     <span>2</span>
+                    <div>
+                      <h3>Allow this site to connect</h3>
+                      <p>Because this page is running from <code>{currentSiteOrigin}</code>, Ollama must allow that browser origin before Archimedes can call your local model.</p>
+                      <div className="ollama-os-tabs" role="tablist" aria-label="Operating system instructions">
+                        {OLLAMA_OS_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            role="tab"
+                            aria-selected={ollamaOriginInstructions.selectedOs === option.value}
+                            className="ollama-os-tab"
+                            data-active={ollamaOriginInstructions.selectedOs === option.value ? 'true' : 'false'}
+                            onClick={() => ollamaOriginInstructions.setSelectedOs(option.value)}
+                          >
+                            {option.label}
+                            {ollamaOriginInstructions.detectedOs === option.value && <span>Detected</span>}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="ollama-os-instructions" role="tabpanel">
+                        <p>{ollamaOriginInstructions.selectedInstruction.description}</p>
+                        <div className="ollama-quit-instructions">
+                          <strong>Quit Ollama if it is already running:</strong>
+                          <ul>
+                            {ollamaOriginInstructions.selectedInstruction.quitSteps.map((step) => (
+                              <li key={step}>{step}</li>
+                            ))}
+                          </ul>
+                          {ollamaOriginInstructions.selectedInstruction.quitCommand && renderCopyableCommand(ollamaOriginInstructions.selectedInstruction.quitCommand)}
+                        </div>
+                        <div className="ollama-persist-instructions">
+                          <strong>Add the origin permanently</strong>
+                          <p>{ollamaOriginInstructions.selectedInstruction.permanentNote}</p>
+                          {renderCopyableCommand(ollamaOriginInstructions.selectedInstruction.permanentCommand)}
+                          <strong>Verify the connection</strong>
+                          <p>After restarting Ollama, run this. A successful setup should not return <code>403 Forbidden</code>.</p>
+                          {renderCopyableCommand(ollamaOriginInstructions.selectedInstruction.verifyCommand)}
+                          <strong className="ollama-inline-heading">
+                            <span>Temporary: run Ollama in the background</span>
+                            <AppTooltip label="This starts Ollama once with the allowed site, without saving the setting permanently. You may need to run it again after Ollama stops, you sign out, or your computer restarts.">
+                              <button type="button" className="settings-help-icon" aria-label="Temporary background Ollama information">
+                                <Icon name="info" size={13} />
+                              </button>
+                            </AppTooltip>
+                          </strong>
+                          <p>Use this only if you do not want to permanently save the allowed site.</p>
+                          {renderCopyableCommand(ollamaOriginInstructions.selectedInstruction.backgroundCommand)}
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                  <article>
+                    <span>3</span>
                     <div>
                       <h3>Pick a model for your hardware</h3>
                       <p>Use the recommended Gemma command below, or choose any other tag from the vision model list if your hardware or quality requirements differ.</p>
                     </div>
                   </article>
                   <article>
-                    <span>3</span>
+                    <span>4</span>
                     <div>
-                      <h3>Save and test</h3>
-                      <p>Enter the exact model tag in Settings, keep the endpoint as <code>http://localhost:11434</code> unless you changed it, then click <strong>Test Ollama</strong>.</p>
+                      <h3>Save</h3>
+                      <p>Enter the exact model tag in Settings, keep the endpoint as <code>http://localhost:11434</code> unless you changed it, then click <strong>Save</strong>.</p>
                     </div>
                   </article>
                 </div>
@@ -434,18 +857,7 @@ export function AssistantPanel({
                         </div>
                         <p>{model.bestFor}</p>
                       </div>
-                      <div className="vision-model-command">
-                        <code>{model.command}</code>
-                        <button
-                          type="button"
-                          className={`model-copy-button${copiedModelCommand === model.command ? ' is-copied' : ''}`}
-                          onClick={() => copyModelCommand(model.command)}
-                          aria-label={copiedModelCommand === model.command ? `Copied ${model.command}` : `Copy ${model.command}`}
-                          title={copiedModelCommand === model.command ? 'Copied' : `Copy ${model.command}`}
-                        >
-                          <Icon name={copiedModelCommand === model.command ? 'check' : 'copy'} size={14} />
-                        </button>
-                      </div>
+                      {renderCopyableCommand(model.command)}
                       <div className="vision-model-actions">
                         <a href={model.url} target="_blank" rel="noreferrer">View model</a>
                       </div>
@@ -453,10 +865,68 @@ export function AssistantPanel({
                   ))}
                 </div>
 
-                <p className="ollama-setup-tip">
-                  Recommended command: <code>ollama pull gemma4:e4b</code>. Copy and run it, then enter <code>gemma4:e4b</code> in the Model field. If you pick a different vision model from the catalogue, use its exact tag in both the pull command and the Model field.
-                </p>
+                <div className="ollama-setup-tip">
+                  <p>Recommended command:</p>
+                  {renderCopyableCommand('ollama pull gemma4:e4b')}
+                  <p>Copy and run it, then enter <code>gemma4:e4b</code> in the Model field. If you pick a different vision model from the catalogue, use its exact tag in both the pull command and the Model field.</p>
+                </div>
               </div>
+            </div>
+          </section>
+        </div>
+      )}
+      {showUsageLogsInfo && (
+        <div className="credits-backdrop" role="presentation" onMouseDown={() => setShowUsageLogsInfo(false)}>
+          <section
+            className="credits-modal usage-logs-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="usage-logs-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="credits-modal-header">
+              <div>
+                <p className="credits-kicker">Privacy</p>
+                <h2 id="usage-logs-title">Anonymous usage logs</h2>
+              </div>
+              <button type="button" className="credits-close-button" onClick={() => setShowUsageLogsInfo(false)} aria-label="Close usage logs information">
+                <Icon name="x" size={15} />
+              </button>
+            </header>
+            <div className="usage-logs-modal-body">
+              <p className="usage-logs-assurance">
+                We never send your tokens, creds, API keys, prompts, chat text, or diagram content.
+              </p>
+              <p className="usage-logs-copy">
+                Archimedes only sends privacy-aware product telemetry through PostHog, like app load, review start/completion, and connection test status. Keeping this on helps us understand what works and improve the app.
+              </p>
+              <div className="usage-logs-toggle-row">
+                <div>
+                  <div className="usage-logs-toggle-title">
+                    Send anonymous usage logs <span>Recommended</span>
+                  </div>
+                  <p>Leaving this enabled helps prioritize fixes without exposing private data.</p>
+                </div>
+                <button
+                  type="button"
+                  className="settings-switch"
+                  role="switch"
+                  aria-checked={settings.sendAnonymizedUsageLogs}
+                  aria-label="Send anonymized usage logs"
+                  data-state={settings.sendAnonymizedUsageLogs ? 'on' : 'off'}
+                  onClick={() =>
+                    onSettingsChange({
+                      ...settings,
+                      sendAnonymizedUsageLogs: !settings.sendAnonymizedUsageLogs,
+                    })
+                  }
+                >
+                  <span className="settings-switch-thumb" />
+                </button>
+              </div>
+              {!settings.sendAnonymizedUsageLogs && (
+                <p className="usage-logs-opt-out-note">Usage logs are off. You can turn them back on anytime to help improve Archimedes.</p>
+              )}
             </div>
           </section>
         </div>
@@ -473,9 +943,9 @@ export function AssistantPanel({
             <header className="credits-modal-header">
               <div>
                 <p className="credits-kicker">Open source</p>
-                <h2 id="credits-title">Library credits</h2>
+                <h2 id="credits-title">Open source attributions</h2>
               </div>
-              <button type="button" className="credits-close-button" onClick={() => setShowCredits(false)} aria-label="Close credits">
+              <button type="button" className="credits-close-button" onClick={() => setShowCredits(false)} aria-label="Close open source attributions">
                 <Icon name="x" size={15} />
               </button>
             </header>
