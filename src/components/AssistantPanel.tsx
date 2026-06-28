@@ -170,11 +170,12 @@ function useOllamaOriginInstructions(siteOrigin: string) {
   if (detectedOsRef.current === null) detectedOsRef.current = detectBrowserOs();
 
   const [selectedOs, setSelectedOs] = useState<LocalOllamaOs>(detectedOsRef.current);
-  const instructions: Record<LocalOllamaOs, { backgroundCommand: string; permanentCommand: string; permanentNote: string; description: string; quitSteps: string[]; quitCommand?: string }> = {
+  const instructions: Record<LocalOllamaOs, { backgroundCommand: string; permanentCommand: string; permanentNote: string; verifyCommand: string; description: string; quitSteps: string[]; quitCommand?: string }> = {
     windows: {
       backgroundCommand: `Start-Process powershell -WindowStyle Hidden -ArgumentList '-NoProfile -Command "$env:OLLAMA_ORIGINS=\"${siteOrigin}\"; ollama serve"'`,
       permanentCommand: `setx OLLAMA_ORIGINS "${siteOrigin}"`,
       permanentNote: 'Recommended. After running setx, quit and reopen Ollama. Windows applies setx values only to new processes.',
+      verifyCommand: `curl.exe -i -H "Origin: ${siteOrigin}" http://localhost:11434/api/tags`,
       description: 'Use these steps to permanently allow this site, then reopen Ollama normally.',
       quitSteps: [
         'Click the Ollama llama icon in the Windows system tray and choose Quit, if it is visible.',
@@ -187,6 +188,7 @@ function useOllamaOriginInstructions(siteOrigin: string) {
       backgroundCommand: `mkdir -p ~/.ollama && nohup env OLLAMA_ORIGINS="${siteOrigin}" ollama serve > ~/.ollama/ollama.log 2>&1 &`,
       permanentCommand: `launchctl setenv OLLAMA_ORIGINS "${siteOrigin}"`,
       permanentNote: 'Recommended for the Ollama desktop app. After running launchctl, quit and reopen the Ollama app. You may need to run it again after a reboot.',
+      verifyCommand: `curl -i -H "Origin: ${siteOrigin}" http://localhost:11434/api/tags`,
       description: 'Use these steps to allow this site for the Ollama app, then reopen Ollama normally.',
       quitSteps: [
         'Click the Ollama llama icon in the macOS menu bar and choose Quit Ollama.',
@@ -195,15 +197,16 @@ function useOllamaOriginInstructions(siteOrigin: string) {
       quitCommand: 'pkill ollama',
     },
     linux: {
-      backgroundCommand: `mkdir -p ~/.ollama && nohup env OLLAMA_ORIGINS="${siteOrigin}" ollama serve > ~/.ollama/ollama.log 2>&1 &`,
-      permanentCommand: `sudo mkdir -p /etc/systemd/system/ollama.service.d && printf '[Service]\nEnvironment="OLLAMA_ORIGINS=${siteOrigin}"\n' | sudo tee /etc/systemd/system/ollama.service.d/override.conf && sudo systemctl daemon-reload && sudo systemctl restart ollama`,
+      backgroundCommand: `sudo systemctl stop ollama 2>/dev/null || true; pkill ollama 2>/dev/null || true; mkdir -p ~/.ollama && nohup env OLLAMA_ORIGINS="${siteOrigin}" ollama serve > ~/.ollama/ollama.log 2>&1 &`,
+      permanentCommand: `sudo mkdir -p /etc/systemd/system/ollama.service.d && printf '%s\n' '[Service]' 'Environment="OLLAMA_ORIGINS=${siteOrigin}"' | sudo tee /etc/systemd/system/ollama.service.d/override.conf >/dev/null && sudo systemctl daemon-reload && sudo systemctl restart ollama`,
       permanentNote: 'Recommended when Ollama is installed as a systemd service. It writes a service override and restarts Ollama automatically.',
+      verifyCommand: `curl -i -H "Origin: ${siteOrigin}" http://localhost:11434/api/tags`,
       description: 'Use these steps to permanently allow this site for the Ollama service.',
       quitSteps: [
         'If Ollama is running as a systemd service, stop it first.',
         'If you started Ollama manually, stop the process instead.',
       ],
-      quitCommand: 'sudo systemctl stop ollama || pkill ollama',
+      quitCommand: 'sudo systemctl stop ollama 2>/dev/null || true; pkill ollama 2>/dev/null || true',
     },
   };
 
@@ -611,6 +614,40 @@ export function AssistantPanel({
               <span className="settings-switch-thumb" />
             </button>
           </div>
+          <div className="settings-option-card">
+            <span className="settings-option-icon" aria-hidden="true">
+              <Icon name="eye" size={16} />
+            </span>
+            <div className="settings-option-copy">
+              <div className="settings-option-title-row">
+                <span className="settings-option-title">Send anonymized usage logs</span>
+                <AppTooltip label="Allows privacy-aware PostHog events such as app load, review start/completion, and connection test status. Diagram content, prompts, API keys, and chat text are not sent.">
+                  <button type="button" className="settings-help-icon" aria-label="Anonymized usage logs information">
+                    <Icon name="info" size={13} />
+                  </button>
+                </AppTooltip>
+              </div>
+              <p className="settings-option-description">
+                Help improve Archimedes with anonymous product telemetry. Turn this off to opt out immediately.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="settings-switch"
+              role="switch"
+              aria-checked={settings.sendAnonymizedUsageLogs}
+              aria-label="Send anonymized usage logs"
+              data-state={settings.sendAnonymizedUsageLogs ? 'on' : 'off'}
+              onClick={() =>
+                onSettingsChange({
+                  ...settings,
+                  sendAnonymizedUsageLogs: !settings.sendAnonymizedUsageLogs,
+                })
+              }
+            >
+              <span className="settings-switch-thumb" />
+            </button>
+          </div>
           <div className="settings-bottom-actions">
             <AppTooltip label={settings.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>
               <button
@@ -798,6 +835,9 @@ export function AssistantPanel({
                           <strong>Add the origin permanently</strong>
                           <p>{ollamaOriginInstructions.selectedInstruction.permanentNote}</p>
                           {renderCopyableCommand(ollamaOriginInstructions.selectedInstruction.permanentCommand)}
+                          <strong>Verify the connection</strong>
+                          <p>After restarting Ollama, run this. A successful setup should not return <code>403 Forbidden</code>.</p>
+                          {renderCopyableCommand(ollamaOriginInstructions.selectedInstruction.verifyCommand)}
                           <strong className="ollama-inline-heading">
                             <span>Temporary: run Ollama in the background</span>
                             <AppTooltip label="This starts Ollama once with the allowed site, without saving the setting permanently. You may need to run it again after Ollama stops, you sign out, or your computer restarts.">
