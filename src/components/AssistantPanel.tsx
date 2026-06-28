@@ -6,6 +6,8 @@ import { TooltipIconAction } from './TooltipIconAction';
 import { useProviderSettings } from '../hooks/useProviderSettings';
 import { useModelSelection } from '../hooks/useModelSelection';
 import { useMaskedApiKeyInput } from '../hooks/useMaskedApiKeyInput';
+import { useReviewTimingSettings } from '../hooks/useReviewTimingSettings';
+import { settingsValidationKey } from '../lib/settingsValidation';
 import type { AppSettings, ChatMessage, LlmProvider, ThinkingLevel } from '../types';
 
 type AssistantPanelProps = {
@@ -154,10 +156,13 @@ export function AssistantPanel({
   onClearChat,
   onTestConnection,
 }: AssistantPanelProps) {
+  const providerConfigurationKey = settingsValidationKey(settings);
+  const providerConfigurationIsTested = settings.providerConfigurationTestedKey === providerConfigurationKey;
   const [prompt, setPrompt] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [showCredits, setShowCredits] = useState(false);
-  const [providerConfigOpen, setProviderConfigOpen] = useState(true);
+  const [providerConfigOpen, setProviderConfigOpen] = useState(!providerConfigurationIsTested);
+  const [reviewTimingOpen, setReviewTimingOpen] = useState(false);
   const [showOllamaSetup, setShowOllamaSetup] = useState(false);
   const [copiedModelCommand, setCopiedModelCommand] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -174,6 +179,7 @@ export function AssistantPanel({
   } = useProviderSettings(settings, onSettingsChange);
   const modelSelection = useModelSelection({ settings, onSettingsChange });
   const maskedApiKeyInput = useMaskedApiKeyInput({ settings, onSettingsChange });
+  const reviewTiming = useReviewTimingSettings({ settings, onSettingsChange });
 
   const resizePromptInput = () => {
     const textarea = textareaRef.current;
@@ -185,6 +191,10 @@ export function AssistantPanel({
   useEffect(() => {
     resizePromptInput();
   }, [prompt]);
+
+  useEffect(() => {
+    setProviderConfigOpen(!providerConfigurationIsTested);
+  }, [providerConfigurationIsTested, providerConfigurationKey]);
 
   useEffect(() => {
     if (!showCredits && !showOllamaSetup) return;
@@ -243,22 +253,24 @@ export function AssistantPanel({
             <img className="logo-light" src="/logos/logo-light.svg" alt="" aria-hidden="true" />
             <img className="logo-dark" src="/logos/logo-dark.svg" alt="" aria-hidden="true" />
           </span>
-          <div>
-            <h1>Archimedes Agent</h1>
+          <div className="assistant-title-copy">
+            <div className="assistant-heading-row">
+              <h1>Archimedes Agent</h1>
+              <div className="assistant-header-actions">
+                <AppTooltip label={showSettings ? 'Back to chat' : 'Settings'}>
+                  <button
+                    className="settings-toggle"
+                    onClick={() => setShowSettings((value) => !value)}
+                    aria-label={showSettings ? 'Back to chat' : 'Open settings'}
+                  >
+                    <Icon name={showSettings ? 'message' : 'settings'} size={15} />
+                    <span>{showSettings ? 'Chat' : 'Settings'}</span>
+                  </button>
+                </AppTooltip>
+              </div>
+            </div>
             <p>{status}</p>
           </div>
-        </div>
-        <div className="assistant-header-actions">
-          <AppTooltip label={showSettings ? 'Back to chat' : 'Settings'}>
-            <button
-              className="settings-toggle"
-              onClick={() => setShowSettings((value) => !value)}
-              aria-label={showSettings ? 'Back to chat' : 'Open settings'}
-            >
-              <Icon name={showSettings ? 'message' : 'settings'} size={15} />
-              <span>{showSettings ? 'Chat' : 'Settings'}</span>
-            </button>
-          </AppTooltip>
         </div>
       </header>
 
@@ -394,6 +406,82 @@ export function AssistantPanel({
                   <button onClick={handleSaveProviderConfiguration} disabled={isBusy}>
                     <Icon name="plug" size={15} />
                     {testConnectionLabel}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="provider-config-accordion" data-open={reviewTimingOpen ? 'true' : 'false'}>
+            <button
+              type="button"
+              className="provider-config-summary"
+              onClick={() => {
+                if (reviewTimingOpen) reviewTiming.resetDraft();
+                setReviewTimingOpen((value) => !value);
+              }}
+              aria-expanded={reviewTimingOpen}
+            >
+              <span>
+                <strong>Proactive review timing</strong>
+                <small>{reviewTiming.proactiveDelaySeconds}s debounce · {reviewTiming.proactiveTimeoutSeconds}s timeout</small>
+              </span>
+              <Icon name="chevronDown" size={15} />
+            </button>
+            {reviewTimingOpen && (
+              <div className="provider-config-content settings-timing-content">
+                <p className="settings-option-description">
+                  Tune how quickly Archimedes reviews changes while proactive mode is enabled.
+                </p>
+                <div className="settings-timing-grid">
+                  <label>
+                    <span className="settings-inline-label">
+                      <span>Debounce after changes</span>
+                      <AppTooltip label="How long to wait after the latest meaningful diagram change before starting a proactive review.">
+                        <button type="button" className="settings-help-icon" aria-label="Debounce timing information">
+                          <Icon name="info" size={13} />
+                        </button>
+                      </AppTooltip>
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="300"
+                      step="1"
+                      value={reviewTiming.draftDelaySeconds}
+                      onChange={(event) => reviewTiming.updateDraftDelaySeconds(event.target.value)}
+                    />
+                    <small>Seconds after the last edit.</small>
+                  </label>
+                  <label>
+                    <span className="settings-inline-label">
+                      <span>Maximum wait timeout</span>
+                      <AppTooltip label="The longest unsent diagram changes can wait before a proactive review is forced, even during continuous edits.">
+                        <button type="button" className="settings-help-icon" aria-label="Maximum wait timeout information">
+                          <Icon name="info" size={13} />
+                        </button>
+                      </AppTooltip>
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="300"
+                      step="1"
+                      value={reviewTiming.draftTimeoutSeconds}
+                      onChange={(event) => reviewTiming.updateDraftTimeoutSeconds(event.target.value)}
+                    />
+                    <small>Seconds before forcing a review.</small>
+                  </label>
+                </div>
+                <div className="provider-config-actions">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      reviewTiming.saveReviewTiming();
+                      setReviewTimingOpen(false);
+                    }}
+                  >
+                    <Icon name="check" size={15} />
+                    Save timing
                   </button>
                 </div>
               </div>

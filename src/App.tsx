@@ -6,11 +6,11 @@ import { meaningfulSceneSignature } from './lib/diagramSummary';
 import { useLlmReviewContext } from './hooks/useLlmReviewContext';
 import { llmProviderFactory } from './lib/llm/provider';
 import { appStorage } from './lib/storage';
+import { normalizeReviewDelayMs, normalizeReviewTimeoutMs } from './lib/reviewTiming';
+import { settingsValidationKey } from './lib/settingsValidation';
 import type { AppSettings, ChatMessage, DiagramSnapshot, ExcalidrawApi } from './types';
 import './styles.css';
 
-const AUTO_REVIEW_INTERVAL_MS = 20_000;
-const AUTO_REVIEW_MAX_WAIT_MS = 60_000;
 const MIN_ELEMENTS_FOR_PROACTIVE_REVIEW = 2;
 const DEFAULT_SIDEBAR_WIDTH = 420;
 const MIN_SIDEBAR_WIDTH = 320;
@@ -33,10 +33,6 @@ function id(prefix: string) {
 function toErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   return String(error);
-}
-
-function settingsValidationKey(settings: AppSettings) {
-  return [settings.provider, settings.endpoint, settings.model, settings.apiKey, settings.temperature, settings.thinkingLevel].join('\u001f');
 }
 
 export default function App() {
@@ -125,14 +121,16 @@ export default function App() {
       return;
     }
 
+    const reviewDelayMs = normalizeReviewDelayMs(settings.proactiveDelayMs);
+    const reviewTimeoutMs = normalizeReviewTimeoutMs(settings.proactiveCooldownMs);
     const now = Date.now();
     firstUnsentChangeAtRef.current ??= now;
-    const maxWaitRemaining = AUTO_REVIEW_MAX_WAIT_MS - (now - firstUnsentChangeAtRef.current);
-    const delay = Math.max(0, Math.min(AUTO_REVIEW_INTERVAL_MS, maxWaitRemaining));
+    const maxWaitRemaining = reviewTimeoutMs - (now - firstUnsentChangeAtRef.current);
+    const delay = Math.max(0, Math.min(reviewDelayMs, maxWaitRemaining));
 
     proactiveTimerRef.current = window.setTimeout(() => {
       if (isBusyRef.current) {
-        proactiveTimerRef.current = window.setTimeout(scheduleProactiveReview, AUTO_REVIEW_INTERVAL_MS);
+        proactiveTimerRef.current = window.setTimeout(scheduleProactiveReview, reviewDelayMs);
         return;
       }
       void runAgentReview({ mode: 'proactive' });
@@ -246,6 +244,11 @@ export default function App() {
     try {
       const result = await llmProviderFactory.testConnection(settings);
       setModelValidationError(null);
+      setSettings((currentSettings) =>
+        settingsValidationKey(currentSettings) === validationKey
+          ? { ...currentSettings, providerConfigurationTestedKey: validationKey }
+          : currentSettings,
+      );
       setStatus(`Saved · ${providerName} · ${settings.model}`);
       captureAnalyticsEvent('llm_connection_tested', { provider: settings.provider, ok: true, supports_vision: result.supportsVision });
       const visionNote = result.visionSupportKnown
@@ -277,7 +280,7 @@ export default function App() {
   useEffect(() => {
     scheduleProactiveReview();
     return () => window.clearTimeout(proactiveTimerRef.current);
-  }, [settings.autoReview]);
+  }, [settings.autoReview, settings.proactiveDelayMs, settings.proactiveCooldownMs]);
 
   useEffect(() => {
     return () => {

@@ -1,5 +1,6 @@
 import { DEFAULT_SETTINGS, type AppSettings, type ChatMessage, type DiagramSnapshot } from '../types';
 import { llmProviderFactory } from './llm/provider';
+import { normalizeReviewDelayMs, normalizeReviewTimeoutMs } from './reviewTiming';
 
 const SETTINGS_KEY = 'archimedes-agent.settings.v1';
 const SCENE_KEY = 'archimedes-agent.scene.v1';
@@ -63,6 +64,9 @@ export class AppStorage {
       model: activeConfiguration.model,
       apiKey: activeConfiguration.apiKey,
       includeHistoryInProactiveReviews: Boolean(settings.includeHistoryInProactiveReviews),
+      proactiveDelayMs: normalizeReviewDelayMs(settings.proactiveDelayMs ?? DEFAULT_SETTINGS.proactiveDelayMs),
+      proactiveCooldownMs: normalizeReviewTimeoutMs(settings.proactiveCooldownMs ?? DEFAULT_SETTINGS.proactiveCooldownMs),
+      providerConfigurationTestedKey: settings.providerConfigurationTestedKey ?? DEFAULT_SETTINGS.providerConfigurationTestedKey,
       theme: settings.theme || browserTheme,
     };
   }
@@ -82,6 +86,7 @@ export class AppStorage {
       includeHistoryInProactiveReviews,
       proactiveDelayMs,
       proactiveCooldownMs,
+      providerConfigurationTestedKey,
     } = settingsToSave;
 
     this.writeJson(SETTINGS_KEY, {
@@ -97,6 +102,7 @@ export class AppStorage {
       includeHistoryInProactiveReviews,
       proactiveDelayMs,
       proactiveCooldownMs,
+      providerConfigurationTestedKey,
     });
   }
 

@@ -35,6 +35,7 @@ export type AppSettings = {
   includeHistoryInProactiveReviews: boolean;
   proactiveDelayMs: number;
   proactiveCooldownMs: number;
+  providerConfigurationTestedKey: string;
 };
 
 export type ChatMessage = {
@@ -99,4 +100,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   includeHistoryInProactiveReviews: false,
   proactiveDelayMs: 12_000,
   proactiveCooldownMs: 60_000,
+  providerConfigurationTestedKey: '',
 };
