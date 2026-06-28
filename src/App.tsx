@@ -35,6 +35,10 @@ function toErrorMessage(error: unknown) {
   return String(error);
 }
 
+function settingsValidationKey(settings: AppSettings) {
+  return [settings.provider, settings.endpoint, settings.model, settings.apiKey].join('\u001f');
+}
+
 export default function App() {
   const initialSnapshot = useMemo(() => appStorage.loadScene(), []);
   const [settings, setSettings] = useState<AppSettings>(() => appStorage.loadSettings());
@@ -42,6 +46,7 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(loadSidebarWidth);
   const [isBusy, setIsBusy] = useState(false);
   const [status, setStatus] = useState(() => llmProviderFactory.getProviderStatus(settings));
+  const [modelValidationError, setModelValidationError] = useState<{ key: string; message: string } | null>(null);
 
   const apiRef = useRef<ExcalidrawApi | null>(null);
   const snapshotRef = useRef<DiagramSnapshot | null>(initialSnapshot);
@@ -159,6 +164,19 @@ export default function App() {
     const designChangedSincePreviousReview = mode === 'proactive' && Boolean(lastReviewSignatureRef.current) && currentSignature !== lastReviewSignatureRef.current;
     if (mode === 'proactive' && liveElements.length < MIN_ELEMENTS_FOR_PROACTIVE_REVIEW) return;
 
+    const validationError = modelValidationError?.key === settingsValidationKey(settings) ? modelValidationError.message : null;
+    if (validationError) {
+      appendMessage({
+        id: id('error'),
+        role: 'assistant',
+        content: `Cannot use model \`${settings.model}\` yet. Save failed with: ${validationError}`,
+        createdAt: Date.now(),
+        kind: 'error',
+      });
+      setStatus('Model has a save error');
+      return;
+    }
+
     captureAnalyticsEvent('diagram_review_started', {
       mode,
       live_element_count: liveElements.length,
@@ -220,23 +238,37 @@ export default function App() {
   };
 
   const handleTestConnection = async () => {
+    if (isBusy) return;
     const providerName = llmProviderFactory.getProviderName(settings.provider);
-    setStatus(`Testing ${providerName}...`);
+    const validationKey = settingsValidationKey(settings);
+    setIsBusy(true);
+    setStatus(`Saving and testing ${providerName}...`);
     try {
       const result = await llmProviderFactory.testConnection(settings);
-      setStatus(`Connected to ${providerName} · ${settings.model}`);
+      setModelValidationError(null);
+      setStatus(`Saved · ${providerName} · ${settings.model}`);
       captureAnalyticsEvent('llm_connection_tested', { provider: settings.provider, ok: true, supports_vision: result.supportsVision });
       const visionNote = result.visionSupportKnown
         ? result.supportsVision
           ? 'The selected model advertises vision support.'
           : 'Warning: the selected model does not advertise vision support, so image-based review may fail or require a vision-capable model/tag.'
         : 'Vision support could not be verified from the provider model list; ensure the selected model supports image inputs.';
-      appendMessage({ id: id('status'), role: 'assistant', content: `Connected to ${providerName} at ${settings.endpoint}. Model: ${settings.model}. ${visionNote}`, createdAt: Date.now(), kind: result.supportsVision ? 'status' : 'error' });
+      appendMessage({
+        id: id('status'),
+        role: 'assistant',
+        content: `Saved and verified ${providerName} at ${settings.endpoint}. Model: ${settings.model}. Test response: “${result.responseText ?? 'OK'}”. ${visionNote}`,
+        createdAt: Date.now(),
+        kind: result.supportsVision ? 'status' : 'error',
+      });
     } catch (error) {
-      const message = `Cannot reach ${providerName} at ${settings.endpoint}. Ensure the endpoint, model, and API key are correct. (${toErrorMessage(error)})`;
+      const errorText = toErrorMessage(error);
+      const message = `Settings were saved, but ${providerName} could not complete a chat test with model \`${settings.model}\`. Fix the highlighted field/configuration before using this model. (${errorText})`;
+      setModelValidationError({ key: validationKey, message: errorText });
       captureAnalyticsEvent('llm_connection_tested', { provider: settings.provider, ok: false });
-      setStatus(`${providerName} unavailable`);
+      setStatus('Saved with model error');
       appendMessage({ id: id('error'), role: 'assistant', content: message, createdAt: Date.now(), kind: 'error' });
+    } finally {
+      setIsBusy(false);
     }
   };
 
@@ -326,6 +358,7 @@ export default function App() {
         settings={settings}
         isBusy={isBusy}
         status={status}
+        modelValidationError={modelValidationError?.key === settingsValidationKey(settings) ? modelValidationError.message : null}
         onSendChat={handleSendChat}
         onReview={handleReview}
         onSettingsChange={handleSettingsChange}

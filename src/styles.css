@@ -575,6 +575,106 @@ body.is-resizing-sidebar .sidebar-resizer::after { opacity: 1; }
   color: var(--ink);
   padding: 0 10px;
 }
+.model-combobox {
+  position: relative;
+  width: 100%;
+}
+.model-combobox input {
+  width: 100%;
+  padding-right: 34px;
+}
+.model-combobox[data-error="true"] input {
+  border-color: color-mix(in srgb, var(--error) 70%, var(--hairline));
+  background: color-mix(in srgb, var(--error) 4%, var(--canvas));
+}
+.settings-field-error {
+  margin: 6px 0 0;
+  color: var(--error);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 17px;
+}
+.model-combobox-caret {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  display: inline-flex;
+  color: var(--mute);
+  pointer-events: none;
+  transition: transform 180ms ease;
+}
+.model-combobox[data-open="true"] .model-combobox-caret {
+  transform: rotate(180deg);
+}
+.model-combobox-menu {
+  position: absolute;
+  z-index: 45;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  display: grid;
+  gap: 4px;
+  max-height: 236px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--canvas);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.02), 0 8px 16px -4px rgba(0, 0, 0, 0.04), 0 24px 32px -8px rgba(0, 0, 0, 0.06), inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+.model-combobox-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--body);
+  padding: 6px 8px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  letter-spacing: -0.2px;
+  text-align: left;
+  box-shadow: none;
+}
+.model-combobox-option span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.model-combobox-option:hover,
+.model-combobox-option[data-active="true"] {
+  background: var(--canvas-soft-2);
+  color: var(--ink);
+}
+.model-combobox-option[data-selected="true"] {
+  background: var(--canvas-soft-2);
+  color: var(--ink);
+  font-weight: 500;
+}
+.model-vision-pill {
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--link) 28%, transparent);
+  border-radius: 999px;
+  color: var(--link);
+  padding: 1px 6px;
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+}
+.model-combobox-status {
+  margin: 0;
+  padding: 8px;
+  color: var(--mute);
+  font-size: 12px;
+  line-height: 17px;
+}
 .composer-input-wrap {
   position: relative;
   border: 0;

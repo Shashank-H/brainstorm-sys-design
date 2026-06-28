@@ -1,5 +1,5 @@
 import type { AppSettings } from '../../types';
-import { BaseLlmProvider, type StreamLlmChatArgs } from './base';
+import { BaseLlmProvider, type LlmModelOption, type StreamLlmChatArgs } from './base';
 
 function normalizeEndpoint(endpoint: string) {
   return endpoint.replace(/\/+$/, '');
@@ -19,6 +19,17 @@ export type OllamaModelInfo = {
   model?: string;
   capabilities?: string[];
 };
+
+function toModelOption(model: OllamaModelInfo): LlmModelOption | null {
+  const value = model.name ?? model.model;
+  if (!value) return null;
+  return {
+    value,
+    label: value,
+    supportsVision: Boolean(model.capabilities?.includes('vision')),
+    metadata: model,
+  };
+}
 
 type OllamaThinkingConfig = {
   think: false | 'low' | 'medium' | 'high';
@@ -92,13 +103,47 @@ export class OllamaProvider extends BaseLlmProvider {
     }
   }
 
-  async testConnection(settings: AppSettings) {
+  async listModels(settings: AppSettings): Promise<LlmModelOption[]> {
     const endpoint = normalizeEndpoint(settings.endpoint);
     const response = await fetch(`${endpoint}/api/tags`);
     if (!response.ok) throw new Error(await parseOllamaError(response));
     const data = (await response.json()) as { models?: OllamaModelInfo[] };
-    const models = data.models ?? [];
-    const selectedModel = models.find((model) => model.name === settings.model || model.model === settings.model);
+
+    return (data.models ?? [])
+      .map(toModelOption)
+      .filter((model): model is LlmModelOption => Boolean(model))
+      .sort((left, right) => left.label.localeCompare(right.label));
+  }
+
+  async testConnection(settings: AppSettings) {
+    const endpoint = normalizeEndpoint(settings.endpoint);
+    const models = await this.listModels(settings);
+    const selectedModel = models.find((model) => model.value === settings.model)?.metadata as OllamaModelInfo | undefined;
+
+    const response = await fetch(`${endpoint}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: settings.model,
+        stream: false,
+        ...this.getThinkingConfig(settings),
+        options: { temperature: Math.min(settings.temperature, 0.3) },
+        messages: [
+          { role: 'system', content: 'Respond in one very brief sentence.' },
+          { role: 'user', content: 'hi' },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await parseOllamaError(response);
+      throw new Error(`Ollama chat test failed: ${error}`);
+    }
+
+    const data = (await response.json()) as { message?: { content?: string }; response?: string; error?: string };
+    if (data.error) throw new Error(data.error);
+    const responseText = (data.message?.content ?? data.response ?? '').trim();
+    if (!responseText) throw new Error('Ollama chat test returned an empty response.');
 
     return {
       provider: this.id,
@@ -106,6 +151,7 @@ export class OllamaProvider extends BaseLlmProvider {
       supportsVision: Boolean(selectedModel?.capabilities?.includes('vision')),
       visionSupportKnown: true,
       selectedModel,
+      responseText,
     };
   }
 }

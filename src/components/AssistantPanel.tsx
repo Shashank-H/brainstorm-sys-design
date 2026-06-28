@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { MarkdownMessage } from './MarkdownMessage';
 import { CustomSelect } from './CustomSelect';
 import { useProviderSettings } from '../hooks/useProviderSettings';
+import { useModelSelection } from '../hooks/useModelSelection';
+import { useMaskedApiKeyInput } from '../hooks/useMaskedApiKeyInput';
 import type { AppSettings, ChatMessage, LlmProvider, ThinkingLevel } from '../types';
 
 type AssistantPanelProps = {
@@ -9,6 +11,7 @@ type AssistantPanelProps = {
   settings: AppSettings;
   isBusy: boolean;
   status: string;
+  modelValidationError?: string | null;
   onSendChat: (prompt: string) => void;
   onReview: (prompt?: string) => void;
   onSettingsChange: (settings: AppSettings) => void;
@@ -138,6 +141,7 @@ export function AssistantPanel({
   settings,
   isBusy,
   status,
+  modelValidationError,
   onSendChat,
   onReview,
   onSettingsChange,
@@ -150,6 +154,7 @@ export function AssistantPanel({
   const [showOllamaSetup, setShowOllamaSetup] = useState(false);
   const [copiedModelCommand, setCopiedModelCommand] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const modelListboxId = useId();
   const copyResetTimeoutRef = useRef<number | null>(null);
   const {
     providerOptions,
@@ -160,6 +165,8 @@ export function AssistantPanel({
     privacyNote,
     updateProvider,
   } = useProviderSettings(settings, onSettingsChange);
+  const modelSelection = useModelSelection({ settings, onSettingsChange });
+  const maskedApiKeyInput = useMaskedApiKeyInput({ settings, onSettingsChange });
 
   const resizePromptInput = () => {
     const textarea = textareaRef.current;
@@ -262,25 +269,75 @@ export function AssistantPanel({
               onChange={(event) => updateEndpoint(event.target.value)}
             />
           </label>
-          <label>
-            Model
-            <input
-              value={settings.model}
-              placeholder={modelPlaceholder}
-              onChange={(event) => onSettingsChange({ ...settings, model: event.target.value })}
-            />
-          </label>
           {providerMetadata.requiresApiKey && (
             <label>
-              API key (optional)
+              API key
               <input
-                type="password"
-                value={settings.apiKey}
-                placeholder="Bearer token for providers that require one"
-                onChange={(event) => onSettingsChange({ ...settings, apiKey: event.target.value })}
+                type="text"
+                value={maskedApiKeyInput.displayValue}
+                placeholder="Bearer token for this provider"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                data-lpignore="true"
+                data-1p-ignore="true"
+                onKeyDown={maskedApiKeyInput.onKeyDown}
+                onPaste={maskedApiKeyInput.onPaste}
+                onChange={maskedApiKeyInput.onChange}
               />
             </label>
           )}
+          <label>
+            Model
+            <div
+              ref={modelSelection.rootRef}
+              className="model-combobox"
+              data-open={modelSelection.isOpen ? 'true' : 'false'}
+              data-error={modelValidationError ? 'true' : 'false'}
+            >
+              <input
+                value={settings.model}
+                placeholder={modelPlaceholder}
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded={modelSelection.isOpen}
+                aria-controls={modelListboxId}
+                onFocus={modelSelection.openAndLoadModels}
+                onClick={modelSelection.openAndLoadModels}
+                onChange={modelSelection.onInputChange}
+                onKeyDown={modelSelection.onInputKeyDown}
+              />
+              <span className="model-combobox-caret" aria-hidden="true">
+                <Icon name="chevronDown" size={14} />
+              </span>
+              {modelSelection.isOpen && (
+                <div id={modelListboxId} className="model-combobox-menu" role="listbox" aria-label="Available models">
+                  {modelSelection.filteredModels.map((model, index) => (
+                    <button
+                      type="button"
+                      key={model.value}
+                      className="model-combobox-option"
+                      role="option"
+                      aria-selected={model.value === settings.model}
+                      data-active={index === modelSelection.activeIndex ? 'true' : 'false'}
+                      data-selected={model.value === settings.model ? 'true' : 'false'}
+                      onClick={() => modelSelection.selectModel(model)}
+                    >
+                      <span>{model.label}</span>
+                      {model.supportsVision && <span className="model-vision-pill">Vision</span>}
+                    </button>
+                  ))}
+                  {modelSelection.statusText && (
+                    <p className="model-combobox-status" role={modelSelection.loadState === 'error' ? 'alert' : 'status'}>
+                      {modelSelection.statusText}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            {modelValidationError && <p className="settings-field-error">{modelValidationError}</p>}
+          </label>
           {settings.provider === 'ollama' && (
             <button type="button" className="secondary-settings-button" onClick={() => setShowOllamaSetup(true)}>
               <Icon name="info" size={15} />
@@ -498,8 +555,8 @@ export function AssistantPanel({
                   <article>
                     <span>3</span>
                     <div>
-                      <h3>Save and test</h3>
-                      <p>Enter the exact model tag in Settings, keep the endpoint as <code>http://localhost:11434</code> unless you changed it, then click <strong>Test Ollama</strong>.</p>
+                      <h3>Save</h3>
+                      <p>Enter the exact model tag in Settings, keep the endpoint as <code>http://localhost:11434</code> unless you changed it, then click <strong>Save</strong>.</p>
                     </div>
                   </article>
                 </div>

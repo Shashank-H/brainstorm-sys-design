@@ -13,6 +13,7 @@ export type LlmConnectionTestResult = {
   supportsVision: boolean;
   visionSupportKnown: boolean;
   selectedModel?: unknown;
+  responseText?: string;
 };
 
 export type LlmProviderMetadata = {
@@ -21,6 +22,13 @@ export type LlmProviderMetadata = {
   defaultEndpoint: string;
   defaultModel: string;
   requiresApiKey: boolean;
+};
+
+export type LlmModelOption = {
+  value: string;
+  label: string;
+  supportsVision?: boolean;
+  metadata?: unknown;
 };
 
 /**
@@ -34,6 +42,7 @@ export interface LlmRuntime {
   readonly metadata: LlmProviderMetadata;
   streamChat(args: StreamLlmChatArgs): Promise<void>;
   testConnection(settings: AppSettings): Promise<LlmConnectionTestResult>;
+  listModels(settings: AppSettings): Promise<LlmModelOption[]>;
 }
 
 /**
@@ -53,4 +62,5 @@ export abstract class BaseLlmProvider implements LlmRuntime {
 
   abstract streamChat(args: StreamLlmChatArgs): Promise<void>;
   abstract testConnection(settings: AppSettings): Promise<LlmConnectionTestResult>;
+  abstract listModels(settings: AppSettings): Promise<LlmModelOption[]>;
 }

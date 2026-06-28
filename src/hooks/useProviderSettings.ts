@@ -16,7 +16,7 @@ export function useProviderSettings(settings: AppSettings, onSettingsChange: (se
     providerMetadata,
     endpointPlaceholder: providerMetadata.defaultEndpoint,
     modelPlaceholder: providerMetadata.defaultModel,
-    testConnectionLabel: settings.provider === 'ollama' ? 'Test Ollama' : 'Test provider',
+    testConnectionLabel: 'Save',
     privacyNote:
       settings.provider === 'ollama'
         ? 'Local-only: prompts, images, chats, and diagrams are sent only to the configured Ollama endpoint.'

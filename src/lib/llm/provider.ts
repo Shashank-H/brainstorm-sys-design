@@ -1,10 +1,10 @@
 import type { AppSettings, LlmProvider, LlmProviderConfiguration } from '../../types';
-import { BaseLlmProvider, type LlmConnectionTestResult, type LlmProviderMetadata, type LlmRuntime, type StreamLlmChatArgs } from './base';
+import { BaseLlmProvider, type LlmConnectionTestResult, type LlmModelOption, type LlmProviderMetadata, type LlmRuntime, type StreamLlmChatArgs } from './base';
 import { OllamaProvider } from './ollama';
 import { OpenAiCompatibleProvider } from './openai';
 
 export { BaseLlmProvider } from './base';
-export type { LlmConnectionTestResult, LlmProviderMetadata, LlmRuntime, StreamLlmChatArgs } from './base';
+export type { LlmConnectionTestResult, LlmModelOption, LlmProviderMetadata, LlmRuntime, StreamLlmChatArgs } from './base';
 
 type ProviderConstructor = new () => BaseLlmProvider;
 
@@ -107,6 +107,10 @@ export class LlmProviderFactory {
 
   testConnection(settings: AppSettings): Promise<LlmConnectionTestResult> {
     return this.createRuntime(settings).testConnection(settings);
+  }
+
+  listModels(settings: AppSettings): Promise<LlmModelOption[]> {
+    return this.createRuntime(settings).listModels(settings);
   }
 }
 
