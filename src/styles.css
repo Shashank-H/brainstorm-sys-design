@@ -1348,6 +1348,60 @@ body.is-resizing-sidebar .sidebar-resizer::after { opacity: 1; }
   letter-spacing: -0.24px;
 }
 .setup-steps h3 { margin-bottom: 4px; }
+.ollama-os-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.ollama-os-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: var(--body);
+  background: var(--canvas-soft-2);
+  border: 1px solid var(--hairline);
+  font-size: 12px;
+  font-weight: 600;
+}
+.ollama-os-tab[data-active="true"],
+button.ollama-os-tab:hover:not(:disabled) {
+  color: var(--on-primary);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.ollama-os-tab span {
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+.ollama-os-instructions {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+.ollama-quit-instructions {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--canvas-soft-2);
+}
+.ollama-quit-instructions strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+.ollama-quit-instructions ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.ollama-quit-instructions li { margin: 3px 0; }
 .vision-model-heading {
   display: flex;
   align-items: center;

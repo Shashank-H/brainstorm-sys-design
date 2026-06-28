@@ -144,6 +144,74 @@ const OPEN_SOURCE_CREDITS = [
   { name: 'DefinitelyTyped', packageName: '@types/node / @types/react / @types/react-dom', license: 'MIT', url: 'https://github.com/DefinitelyTyped/DefinitelyTyped', note: 'Community TypeScript type definitions.' },
 ];
 
+type LocalOllamaOs = 'windows' | 'mac' | 'linux';
+
+const OLLAMA_OS_OPTIONS: Array<{ value: LocalOllamaOs; label: string }> = [
+  { value: 'windows', label: 'Windows' },
+  { value: 'mac', label: 'macOS' },
+  { value: 'linux', label: 'Linux' },
+];
+
+function detectBrowserOs(): LocalOllamaOs {
+  if (typeof navigator === 'undefined') return 'mac';
+
+  const navigatorWithUserAgentData = navigator as Navigator & { userAgentData?: { platform?: string } };
+  const osHint = `${navigatorWithUserAgentData.userAgentData?.platform ?? ''} ${navigator.platform} ${navigator.userAgent}`.toLowerCase();
+
+  if (osHint.includes('win')) return 'windows';
+  if (osHint.includes('mac') || osHint.includes('iphone') || osHint.includes('ipad')) return 'mac';
+  if (osHint.includes('linux') || osHint.includes('x11') || osHint.includes('android') || osHint.includes('cros')) return 'linux';
+
+  return 'mac';
+}
+
+function useOllamaOriginInstructions(siteOrigin: string) {
+  const detectedOsRef = useRef<LocalOllamaOs | null>(null);
+  if (detectedOsRef.current === null) detectedOsRef.current = detectBrowserOs();
+
+  const [selectedOs, setSelectedOs] = useState<LocalOllamaOs>(detectedOsRef.current);
+  const instructions: Record<LocalOllamaOs, { command: string; description: string; quitSteps: string[]; quitCommand?: string; note: string }> = {
+    windows: {
+      command: `$env:OLLAMA_ORIGINS="${siteOrigin}"; ollama serve`,
+      description: 'Open PowerShell, make sure any already-running Ollama app is closed, then run this command.',
+      quitSteps: [
+        'Click the Ollama llama icon in the Windows system tray and choose Quit, if it is visible.',
+        'If it is not visible, open Task Manager and end any Ollama or ollama.exe process.',
+        'PowerShell alternative:',
+      ],
+      quitCommand: 'taskkill /IM ollama.exe /F',
+      note: 'Keep this PowerShell window open while you use Archimedes, or add OLLAMA_ORIGINS to your Ollama service environment.',
+    },
+    mac: {
+      command: `OLLAMA_ORIGINS="${siteOrigin}" ollama serve`,
+      description: 'Open Terminal, make sure any already-running Ollama app is closed, then run this command.',
+      quitSteps: [
+        'Click the Ollama llama icon in the macOS menu bar and choose Quit Ollama.',
+        'If the menu bar icon is not available, run the terminal command below to stop the background process.',
+      ],
+      quitCommand: 'pkill ollama',
+      note: 'Keep this Terminal window open while you use Archimedes. If you launch Ollama another way, set the same OLLAMA_ORIGINS value there.',
+    },
+    linux: {
+      command: `OLLAMA_ORIGINS="${siteOrigin}" ollama serve`,
+      description: 'Open a terminal, stop any existing Ollama process or service, then run this command.',
+      quitSteps: [
+        'If Ollama is running as a systemd service, stop it first.',
+        'If you started Ollama manually, stop the process instead.',
+      ],
+      quitCommand: 'sudo systemctl stop ollama || pkill ollama',
+      note: 'If Ollama runs through systemd, add this origin as an OLLAMA_ORIGINS environment variable in the service override and restart Ollama.',
+    },
+  };
+
+  return {
+    detectedOs: detectedOsRef.current,
+    selectedInstruction: instructions[selectedOs],
+    selectedOs,
+    setSelectedOs,
+  };
+}
+
 export function AssistantPanel({
   messages,
   settings,
@@ -164,7 +232,7 @@ export function AssistantPanel({
   const [providerConfigOpen, setProviderConfigOpen] = useState(!providerConfigurationIsTested);
   const [reviewTimingOpen, setReviewTimingOpen] = useState(false);
   const [showOllamaSetup, setShowOllamaSetup] = useState(false);
-  const [copiedModelCommand, setCopiedModelCommand] = useState<string | null>(null);
+  const [copiedCommand, setCopiedCommand] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modelListboxId = useId();
   const copyResetTimeoutRef = useRef<number | null>(null);
@@ -180,6 +248,8 @@ export function AssistantPanel({
   const modelSelection = useModelSelection({ settings, onSettingsChange });
   const maskedApiKeyInput = useMaskedApiKeyInput({ settings, onSettingsChange });
   const reviewTiming = useReviewTimingSettings({ settings, onSettingsChange });
+  const currentSiteOrigin = typeof window === 'undefined' ? 'https://this-site.example' : window.location.origin;
+  const ollamaOriginInstructions = useOllamaOriginInstructions(currentSiteOrigin);
 
   const resizePromptInput = () => {
     const textarea = textareaRef.current;
@@ -222,19 +292,35 @@ export function AssistantPanel({
     setPrompt('');
   };
 
-  const copyModelCommand = (command: string) => {
+  const copyCommand = (command: string) => {
     void navigator.clipboard?.writeText(command);
-    setCopiedModelCommand(command);
+    setCopiedCommand(command);
 
     if (copyResetTimeoutRef.current) {
       window.clearTimeout(copyResetTimeoutRef.current);
     }
 
     copyResetTimeoutRef.current = window.setTimeout(() => {
-      setCopiedModelCommand(null);
+      setCopiedCommand(null);
       copyResetTimeoutRef.current = null;
     }, 900);
   };
+
+  const renderCopyableCommand = (command: string) => (
+    <div className="vision-model-command copyable-command">
+      <code>{command}</code>
+      <AppTooltip label={copiedCommand === command ? 'Copied' : `Copy ${command}`}>
+        <button
+          type="button"
+          className={`model-copy-button${copiedCommand === command ? ' is-copied' : ''}`}
+          onClick={() => copyCommand(command)}
+          aria-label={copiedCommand === command ? `Copied ${command}` : `Copy ${command}`}
+        >
+          <Icon name={copiedCommand === command ? 'check' : 'copy'} size={14} />
+        </button>
+      </AppTooltip>
+    </div>
+  );
   
   const updateEndpoint = (endpoint: string) => {
     onSettingsChange({ ...settings, endpoint });
@@ -669,20 +755,57 @@ export function AssistantPanel({
                   <article>
                     <span>1</span>
                     <div>
-                      <h3>Install and start Ollama</h3>
-                      <p>Install Ollama from <a href="https://ollama.com/download" target="_blank" rel="noreferrer">ollama.com/download</a>, then start the local server.</p>
-                      <code>ollama serve</code>
+                      <h3>Install Ollama</h3>
+                      <p>Install Ollama from <a href="https://ollama.com/download" target="_blank" rel="noreferrer">ollama.com/download</a>. If Ollama is already running, quit it before restarting with the allowed site below.</p>
                     </div>
                   </article>
                   <article>
                     <span>2</span>
+                    <div>
+                      <h3>Allow this site to connect</h3>
+                      <p>Because this page is running from <code>{currentSiteOrigin}</code>, Ollama must allow that browser origin before Archimedes can call your local model.</p>
+                      <div className="ollama-os-tabs" role="tablist" aria-label="Operating system instructions">
+                        {OLLAMA_OS_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            role="tab"
+                            aria-selected={ollamaOriginInstructions.selectedOs === option.value}
+                            className="ollama-os-tab"
+                            data-active={ollamaOriginInstructions.selectedOs === option.value ? 'true' : 'false'}
+                            onClick={() => ollamaOriginInstructions.setSelectedOs(option.value)}
+                          >
+                            {option.label}
+                            {ollamaOriginInstructions.detectedOs === option.value && <span>Detected</span>}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="ollama-os-instructions" role="tabpanel">
+                        <p>{ollamaOriginInstructions.selectedInstruction.description}</p>
+                        <div className="ollama-quit-instructions">
+                          <strong>Quit Ollama if it is already running:</strong>
+                          <ul>
+                            {ollamaOriginInstructions.selectedInstruction.quitSteps.map((step) => (
+                              <li key={step}>{step}</li>
+                            ))}
+                          </ul>
+                          {ollamaOriginInstructions.selectedInstruction.quitCommand && renderCopyableCommand(ollamaOriginInstructions.selectedInstruction.quitCommand)}
+                        </div>
+                        <p>Then start Ollama with this site's origin allowed:</p>
+                        {renderCopyableCommand(ollamaOriginInstructions.selectedInstruction.command)}
+                        <p>{ollamaOriginInstructions.selectedInstruction.note}</p>
+                      </div>
+                    </div>
+                  </article>
+                  <article>
+                    <span>3</span>
                     <div>
                       <h3>Pick a model for your hardware</h3>
                       <p>Use the recommended Gemma command below, or choose any other tag from the vision model list if your hardware or quality requirements differ.</p>
                     </div>
                   </article>
                   <article>
-                    <span>3</span>
+                    <span>4</span>
                     <div>
                       <h3>Save</h3>
                       <p>Enter the exact model tag in Settings, keep the endpoint as <code>http://localhost:11434</code> unless you changed it, then click <strong>Save</strong>.</p>
@@ -699,19 +822,7 @@ export function AssistantPanel({
                         </div>
                         <p>{model.bestFor}</p>
                       </div>
-                      <div className="vision-model-command">
-                        <code>{model.command}</code>
-                        <AppTooltip label={copiedModelCommand === model.command ? 'Copied' : `Copy ${model.command}`}>
-                          <button
-                            type="button"
-                            className={`model-copy-button${copiedModelCommand === model.command ? ' is-copied' : ''}`}
-                            onClick={() => copyModelCommand(model.command)}
-                            aria-label={copiedModelCommand === model.command ? `Copied ${model.command}` : `Copy ${model.command}`}
-                          >
-                            <Icon name={copiedModelCommand === model.command ? 'check' : 'copy'} size={14} />
-                          </button>
-                        </AppTooltip>
-                      </div>
+                      {renderCopyableCommand(model.command)}
                       <div className="vision-model-actions">
                         <a href={model.url} target="_blank" rel="noreferrer">View model</a>
                       </div>
@@ -719,9 +830,11 @@ export function AssistantPanel({
                   ))}
                 </div>
 
-                <p className="ollama-setup-tip">
-                  Recommended command: <code>ollama pull gemma4:e4b</code>. Copy and run it, then enter <code>gemma4:e4b</code> in the Model field. If you pick a different vision model from the catalogue, use its exact tag in both the pull command and the Model field.
-                </p>
+                <div className="ollama-setup-tip">
+                  <p>Recommended command:</p>
+                  {renderCopyableCommand('ollama pull gemma4:e4b')}
+                  <p>Copy and run it, then enter <code>gemma4:e4b</code> in the Model field. If you pick a different vision model from the catalogue, use its exact tag in both the pull command and the Model field.</p>
+                </div>
               </div>
             </div>
           </section>
