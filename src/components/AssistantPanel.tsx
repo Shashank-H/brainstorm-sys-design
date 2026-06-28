@@ -32,6 +32,8 @@ type IconName =
   | 'info'
   | 'x'
   | 'github'
+  | 'copy'
+  | 'check'
   | 'chevronDown';
 
 function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
@@ -82,6 +84,10 @@ function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
       return <svg {...common}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
     case 'github':
       return <svg {...common}><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.1-1.3-.3-2.6-1.2-3.6.2-1.2.2-2.5-.1-3.6 0 0-1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 1.5 5.5 1.8 5.5 1.8c-.3 1.1-.4 2.4-.1 3.6A5.3 5.3 0 0 0 4.2 9c0 3.5 3 5.5 6 5.5-.5.5-.8 1.2-.9 2"/><path d="M9 18c-4.5 2-5-2-7-2"/></svg>;
+    case 'copy':
+      return <svg {...common}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>;
+    case 'check':
+      return <svg {...common}><path d="M20 6 9 17l-5-5"/></svg>;
     case 'chevronDown':
       return <svg {...common}><path d="m6 9 6 6 6-6"/></svg>;
   }
@@ -134,7 +140,9 @@ export function AssistantPanel({
   const [showSettings, setShowSettings] = useState(false);
   const [showCredits, setShowCredits] = useState(false);
   const [showOllamaSetup, setShowOllamaSetup] = useState(false);
+  const [copiedModelCommand, setCopiedModelCommand] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const copyResetTimeoutRef = useRef<number | null>(null);
 
   const resizePromptInput = () => {
     const textarea = textareaRef.current;
@@ -158,11 +166,33 @@ export function AssistantPanel({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showCredits, showOllamaSetup]);
 
+  useEffect(() => {
+    return () => {
+      if (copyResetTimeoutRef.current) {
+        window.clearTimeout(copyResetTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const submit = () => {
     const value = prompt.trim();
     if (!value || isBusy) return;
     onSendChat(value);
     setPrompt('');
+  };
+
+  const copyModelCommand = (command: string) => {
+    void navigator.clipboard?.writeText(command);
+    setCopiedModelCommand(command);
+
+    if (copyResetTimeoutRef.current) {
+      window.clearTimeout(copyResetTimeoutRef.current);
+    }
+
+    copyResetTimeoutRef.current = window.setTimeout(() => {
+      setCopiedModelCommand(null);
+      copyResetTimeoutRef.current = null;
+    }, 900);
   };
 
   return (
@@ -399,12 +429,24 @@ export function AssistantPanel({
                   {RECOMMENDED_VISION_MODELS.map((model) => (
                     <article className="vision-model-card" key={model.tag}>
                       <div>
-                        <h3>{model.name}</h3>
+                        <div className="vision-model-heading">
+                          <h3>{model.name}</h3>
+                        </div>
                         <p>{model.bestFor}</p>
                       </div>
-                      <code>{model.command}</code>
+                      <div className="vision-model-command">
+                        <code>{model.command}</code>
+                        <button
+                          type="button"
+                          className={`model-copy-button${copiedModelCommand === model.command ? ' is-copied' : ''}`}
+                          onClick={() => copyModelCommand(model.command)}
+                          aria-label={copiedModelCommand === model.command ? `Copied ${model.command}` : `Copy ${model.command}`}
+                          title={copiedModelCommand === model.command ? 'Copied' : `Copy ${model.command}`}
+                        >
+                          <Icon name={copiedModelCommand === model.command ? 'check' : 'copy'} size={14} />
+                        </button>
+                      </div>
                       <div className="vision-model-actions">
-                        <button type="button" onClick={() => onSettingsChange({ ...settings, model: model.tag })}>Use {model.tag}</button>
                         <a href={model.url} target="_blank" rel="noreferrer">View model</a>
                       </div>
                     </article>
@@ -412,7 +454,7 @@ export function AssistantPanel({
                 </div>
 
                 <p className="ollama-setup-tip">
-                  Recommended command: <code>ollama pull gemma4:e4b</code>. After it finishes, click <strong>Use gemma4:e4b</strong> or enter <code>gemma4:e4b</code> in the Model field. If you pick a different vision model from the catalogue, use its exact tag in both the pull command and the Model field.
+                  Recommended command: <code>ollama pull gemma4:e4b</code>. Copy and run it, then enter <code>gemma4:e4b</code> in the Model field. If you pick a different vision model from the catalogue, use its exact tag in both the pull command and the Model field.
                 </p>
               </div>
             </div>
