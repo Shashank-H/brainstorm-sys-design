@@ -36,7 +36,7 @@ function toErrorMessage(error: unknown) {
 }
 
 function settingsValidationKey(settings: AppSettings) {
-  return [settings.provider, settings.endpoint, settings.model, settings.apiKey].join('\u001f');
+  return [settings.provider, settings.endpoint, settings.model, settings.apiKey, settings.temperature, settings.thinkingLevel].join('\u001f');
 }
 
 export default function App() {

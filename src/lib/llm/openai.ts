@@ -193,7 +193,7 @@ export class OpenAiCompatibleProvider extends BaseLlmProvider {
       body: JSON.stringify({
         model: settings.model,
         stream: false,
-        temperature: Math.min(settings.temperature, 0.3),
+        temperature: settings.temperature,
         ...this.getThinkingConfig(settings),
         messages: [
           { role: 'system', content: 'Respond in one very brief sentence.' },

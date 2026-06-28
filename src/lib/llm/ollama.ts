@@ -127,7 +127,7 @@ export class OllamaProvider extends BaseLlmProvider {
         model: settings.model,
         stream: false,
         ...this.getThinkingConfig(settings),
-        options: { temperature: Math.min(settings.temperature, 0.3) },
+        options: { temperature: settings.temperature },
         messages: [
           { role: 'system', content: 'Respond in one very brief sentence.' },
           { role: 'user', content: 'hi' },
